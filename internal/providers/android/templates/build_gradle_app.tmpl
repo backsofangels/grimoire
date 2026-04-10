@@ -1,0 +1,42 @@
+plugins {
+    id 'com.android.application'
+    {{- if eq .Lang "kotlin" }}
+    id 'kotlin-android'
+    {{- end }}
+}
+
+android {
+    compileSdk {{.TargetSdk}}
+
+    // Required namespace for newer Android Gradle Plugin versions
+    namespace "{{.PackageName}}"
+
+    // Ensure consistent Java/Kotlin compilation target
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    {{- if eq .Lang "kotlin" }}
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+    {{- end }}
+
+    defaultConfig {
+        applicationId "{{.PackageName}}"
+        minSdk {{.MinSdk}}
+        targetSdk {{.TargetSdk}}
+        versionCode 1
+        versionName "1.0"
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    {{- if eq .Lang "kotlin" }}
+    // Kotlin standard library
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.23"
+    {{- end }}
+}
