@@ -33,3 +33,5 @@ gradle-*.zip
 # Generated projects
 */build/
 */.gradle/
+
+AGENTS.md
