@@ -32,9 +32,12 @@ func TestGenerate_Basic_Kotlin(t *testing.T) {
 	if _, err := os.Stat(manifestPath); err != nil {
 		t.Fatalf("manifest missing: %v", err)
 	}
-	b, _ := os.ReadFile(manifestPath)
-	if !strings.Contains(string(b), "com.test.smokekotlin") {
-		t.Fatalf("package not in manifest")
+	// Newer AGP versions expect `namespace` in module build files instead of
+	// `package` in the manifest. Verify namespace is present in app's build.gradle.
+	appBuild := filepath.Join(out, "app", "build.gradle")
+	b, _ := os.ReadFile(appBuild)
+	if !strings.Contains(string(b), "namespace \"com.test.smokekotlin\"") {
+		t.Fatalf("namespace not in app build.gradle")
 	}
 
 	// Kotlin main
