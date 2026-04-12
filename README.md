@@ -40,7 +40,7 @@ grimoire new MyApp --package com.example.myapp --lang kotlin
 ### Build from source
 
 ```bash
-git clone https://github.com/<you>/grimoire
+git clone https://github.com/backsofangels/grimoire
 cd grimoire
 go build -o grimoire.exe .
 ```
