@@ -22,5 +22,7 @@ type Provider interface {
 	Prompt() (ProviderConfig, error)
 	Validate(cfg ProviderConfig) error
 	Generate(cfg ProviderConfig) error
+	// Add creates a single resource inside an existing project (activity/fragment/viewmodel)
+	Add(cfg ProviderConfig) error
 	DoctorChecks() []Check
 }

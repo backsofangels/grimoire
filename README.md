@@ -26,7 +26,7 @@ grimoire new MyApp --package com.example.myapp --lang kotlin
 ## Prerequisites
 
 | Tool | Version | Notes |
-|---|---|---|
+| --- | --- | --- |
 | Go | 1.22+ | To build from source |
 | Java JDK | 11+ | `java` must be on PATH |
 | Gradle CLI | any | Used to generate the wrapper; install hints shown if missing |
@@ -91,14 +91,38 @@ cd MyApp
 
 > Requires the Android SDK and matching build tools configured locally.
 
+### Add subcommands
+
+Use `grimoire add` to generate UI components and their supporting files inside an existing project.
+
+```bash
+# Add an Activity with Hilt, ViewModel, and nav entry
+grimoire add activity --name MyActivity --di hilt --viewmodel --nav
+
+# Add a Fragment with Koin and nav entry
+grimoire add fragment --name MyFragment --di koin --viewmodel --nav
+
+# Create only a ViewModel
+grimoire add viewmodel --name MyViewModel --di hilt
+```
+
+- `--name`: explicit class/resource name (defaults derived from the command)
+- `--di`: dependency injection wiring; one of `none`, `hilt`, or `koin` (default: `none`)
+- `--viewmodel`: also generate a ViewModel and wire it to the UI component
+- `--nav`: add an entry to `app/src/main/res/navigation/nav_graph.xml`
+- `--override`: overwrite existing files when present
+
+- Note: omitting `--di` (or using `--di none`) generates the component without any DI wiring.
+
 ---
 
 ## Templates
 
 | Name | Description |
-|---|---|
+| --- | --- |
 | `basic` | Activity + layout XML + ViewModel, full project structure |
 | `empty` | Bare `MainActivity`, no layout directory |
+| `compose` | Jetpack Compose starter template (Kotlin only) with Compose-ready Gradle config |
 
 ---
 
@@ -106,7 +130,7 @@ cd MyApp
 
 Generated projects follow standard Android conventions and open immediately in VSCode or Android Studio:
 
-```
+```text
 MyApp/
 ├── app/
 │ ├── src/main/
@@ -140,9 +164,9 @@ go test ./...
 ```
 
 - Integration tests (resource-heavy):
-	- Integration tests are under the `cmd/` package and exercise the interactive TUI and end-to-end generator flow.
-	- These tests are skipped automatically in CI: the test code checks the `CI` environment variable and calls `t.Skip()` when it is set. Most CI providers (GitHub Actions, GitLab CI, etc.) set `CI=true` by default, so heavy tests won't run in CI pipelines.
-	- To run integration tests locally (they require Java and Gradle for smoke builds):
+  - Integration tests are under the `cmd/` package and exercise the interactive TUI and end-to-end generator flow.
+  - These tests are skipped automatically in CI: the test code checks the `CI` environment variable and calls `t.Skip()` when it is set. Most CI providers (GitHub Actions, GitLab CI, etc.) set `CI=true` by default, so heavy tests won't run in CI pipelines.
+  - To run integration tests locally (they require Java and Gradle for smoke builds):
 
 ```bash
 # Run a specific integration test by name
@@ -154,8 +178,8 @@ go test ./cmd -v
 ```
 
 - Notes:
-	- Ensure `java` (JDK) and `gradle` are on your `PATH` before running integration tests that build generated projects.
-	- Integration tests create temporary directories and clean up after themselves; they're intended for local verification only.
+  - Ensure `java` (JDK) and `gradle` are on your `PATH` before running integration tests that build generated projects.
+  - Integration tests create temporary directories and clean up after themselves; they're intended for local verification only.
 
 Format code:
 
@@ -175,8 +199,8 @@ The provider interface lives in `internal/providers/provider.go` — implement i
 - [x] Smoke-tested end-to-end (`assembleDebug`)
 - [x] `grimoire doctor` — environment preflight checks (JDK, Gradle, Android SDK)
 - [x] `grimoire new` interactive wizard (TUI)
-- [ ] `grimoire add activity|fragment|viewmodel`
-- [ ] Jetpack Compose template
+- [x] `grimoire add activity|fragment|viewmodel`
+- [x] Jetpack Compose template
 - [ ] Spring Boot provider
 - [ ] Scoop distribution (v1.0.0)
 
