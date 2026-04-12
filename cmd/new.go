@@ -2,12 +2,14 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/backsofangels/grimoire/internal/logging"
 	"github.com/backsofangels/grimoire/internal/providers"
 	"github.com/backsofangels/grimoire/internal/validator"
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -18,26 +20,75 @@ var newCmd = &cobra.Command{
 	Short: "Create a new project",
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		// Determine default provider from flag (may be overridden by interactive selection)
 		providerName, _ := cmd.Flags().GetString("provider")
-		provider, err := providers.Get(providerName)
-		if err != nil {
-			logging.Error("✗ Provider not found", "provider", providerName, "error", err)
-			return
-		}
 
 		var cfg providers.ProviderConfig
+		var provider providers.Provider
+		var err error
 
 		// Interactive wizard: no positional args AND no flags changed
 		if len(args) == 0 && !anyFlagChanged(cmd) {
-			var perr error
-			cfg, perr = provider.Prompt()
-			if perr != nil {
-				// user aborted or prompt error
+			// Top-level TUI: choose project type first
+			projectType := "android"
+			th := huh.ThemeBase()
+			form := huh.NewForm(
+				huh.NewGroup(
+					huh.NewSelect[string]().
+						Title("Project type").
+						Options(
+							huh.NewOption("Android — Android project (Kotlin/Java)", "android"),
+							huh.NewOption("Java — Plain Java or Spring Boot", "java"),
+						).
+						Value(&projectType).
+						Height(0),
+				).Title("Step 1 — Project type"),
+			).WithTheme(th)
+
+			// Branded header for top-level wizard (match provider prompts)
+			purple := lipgloss.Color("135")
+			headerBanner := "🔮 grimoire — new project"
+			headerStyle := lipgloss.NewStyle().Border(lipgloss.ThickBorder()).BorderLeft(true).BorderLeftForeground(purple).PaddingLeft(1).Bold(true).Foreground(lipgloss.Color("255"))
+			subtitleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+			fmt.Println(headerStyle.Render(headerBanner))
+			fmt.Println(subtitleStyle.Render("Use arrow keys · Enter to confirm · Ctrl+C to cancel"))
+			fmt.Println()
+
+			if err := form.Run(); err != nil {
+				logging.Info("✗ Aborted: project creation cancelled by user")
+				return
+			}
+
+			// Map selection to provider name
+			if projectType == "java" {
+				providerName = "springboot"
+			} else {
+				providerName = "android"
+			}
+
+			provider, err = providers.Get(providerName)
+			if err != nil {
+				logging.Error("✗ Provider not found", "provider", providerName, "error", err)
+				return
+			}
+
+			// We've already rendered the branded header for the top-level wizard;
+			// set a flag so provider prompts don't re-render it.
+			_ = os.Setenv("GRIMOIRE_HEADER_PRINTED", "1")
+
+			cfg, err = provider.Prompt()
+			if err != nil {
 				logging.Info("✗ Aborted: project creation cancelled by user")
 				return
 			}
 		} else {
 			// Non-interactive mode: accept either positional arg or --app-name flag
+			provider, err = providers.Get(providerName)
+			if err != nil {
+				logging.Error("✗ Provider not found", "provider", providerName, "error", err)
+				return
+			}
+
 			appNameFlag, _ := cmd.Flags().GetString("app-name")
 			var appName string
 			if appNameFlag != "" {
@@ -187,9 +238,14 @@ func printSuccess(cfg providers.ProviderConfig) {
 func init() {
 	// support explicit --app-name flag in addition to positional arg
 	newCmd.Flags().String("app-name", "", "Application name (alternative to positional app-name)")
-	// Register flags for known providers dynamically (android exists by default)
-	if p, err := providers.Get("android"); err == nil {
+	// Register flags for all registered providers (deduplicate by flag name)
+	seen := map[string]bool{}
+	for _, p := range providers.All() {
 		for _, f := range p.Flags() {
+			if seen[f.Name] {
+				continue
+			}
+			seen[f.Name] = true
 			switch def := f.Default.(type) {
 			case bool:
 				newCmd.Flags().BoolP(f.Name, f.Short, def, f.Usage)

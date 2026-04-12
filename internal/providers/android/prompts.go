@@ -2,6 +2,7 @@ package android
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -67,14 +68,15 @@ func (p *AndroidProvider) Prompt() (providers.ProviderConfig, error) {
 		return rendered + "\n" + sepStyle.Render(sep)
 	}
 
-	// Branded header printed once before the form runs
-	// Branded header printed once before the form runs
-	headerBanner := "🔮 grimoire — new project"
-	headerStyle := lipgloss.NewStyle().Border(lipgloss.ThickBorder()).BorderLeft(true).BorderLeftForeground(purple).PaddingLeft(1).Bold(true).Foreground(white)
-	subtitleStyle := lipgloss.NewStyle().Foreground(dimWhite)
-	fmt.Println(headerStyle.Render(headerBanner))
-	fmt.Println(subtitleStyle.Render("Use arrow keys · Enter to confirm · Ctrl+C to cancel"))
-	fmt.Println()
+	// Branded header printed once before the form runs (skip if already printed)
+	if os.Getenv("GRIMOIRE_HEADER_PRINTED") == "" {
+		headerBanner := "🔮 grimoire — new project"
+		headerStyle := lipgloss.NewStyle().Border(lipgloss.ThickBorder()).BorderLeft(true).BorderLeftForeground(purple).PaddingLeft(1).Bold(true).Foreground(white)
+		subtitleStyle := lipgloss.NewStyle().Foreground(dimWhite)
+		fmt.Println(headerStyle.Render(headerBanner))
+		fmt.Println(subtitleStyle.Render("Use arrow keys · Enter to confirm · Ctrl+C to cancel"))
+		fmt.Println()
+	}
 
 	// Build the form with one field per step so the TUI shows a single
 	// prompt at a time rather than multiple prompts on the same screen.

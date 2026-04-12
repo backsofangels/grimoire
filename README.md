@@ -14,7 +14,7 @@ grimoire new MyApp --package com.example.myapp --lang kotlin
 
 ## Features
 
-- **Provider-based architecture** — pluggable scaffolding targets (currently `android`, more coming)
+- **Provider-based architecture** — pluggable scaffolding targets (currently `android`, `springboot`)
 - **Kotlin & Java** — full template support for both languages
 - **Gradle-ready** — generates `build.gradle`, `settings.gradle`, `gradle.properties` and a working wrapper
 - **Opinionated defaults** — `AndroidManifest.xml`, `.vscode/` config, `.gitignore`, themes, strings, layouts
@@ -201,7 +201,7 @@ The provider interface lives in `internal/providers/provider.go` — implement i
 - [x] `grimoire new` interactive wizard (TUI)
 - [x] `grimoire add activity|fragment|viewmodel`
 - [x] Jetpack Compose template
-- [ ] Spring Boot provider
+- [x] Spring Boot provider
 - [ ] Scoop distribution (v1.0.0)
 
 ---
