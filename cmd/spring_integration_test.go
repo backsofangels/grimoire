@@ -38,7 +38,7 @@ func TestNewIntegrationCLISpringBoot(t *testing.T) {
 	}
 
 	// Run non-interactive generation for springboot provider
-	run := exec.Command(bin, "new", "MySpringApp", "--provider", "springboot", "--group", "com.test", "--artifact", "myspring", "--package", "com.test.myspring", "--template", "springboot", "--no-wrapper", "--git=false")
+	run := exec.Command(bin, "new", "MySpringApp", "--provider", "springboot", "--group", "com.test", "--artifact", "myspring", "--package", "com.test.myspring", "--template", "springboot", "--wrapper=false", "--git=false")
 	run.Dir = tmp
 	if out, err := run.CombinedOutput(); err != nil {
 		t.Fatalf("grimoire new failed: %v\n%s", err, string(out))

@@ -79,7 +79,7 @@ The wizard guides you step by step through app name, package, language, SDK vers
 ### Skip Gradle wrapper generation
 
 ```bash
-grimoire new MyApp --package com.example.myapp --no-wrapper
+grimoire new MyApp --package com.example.myapp --wrapper=false
 ```
 
 ### Build the generated project

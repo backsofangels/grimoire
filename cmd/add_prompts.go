@@ -178,8 +178,11 @@ func runAddInteractive(cmd *cobra.Command, provider providers.Provider, kind str
 	}
 
 	// Validate inputs
-	if err := validateUI(ui); err != nil {
-		return err
+	// Only validate explicit UI values; interactive selection may set 'none'
+	if strings.ToLower(ui) != "none" {
+		if err := validateUI(ui); err != nil {
+			return err
+		}
 	}
 	if err := validateLang(lang); err != nil {
 		return err

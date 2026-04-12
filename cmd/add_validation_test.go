@@ -11,7 +11,7 @@ func TestValidateUI(t *testing.T) {
 		{"xml", false},
 		{"XML", false},
 		{"compose", false},
-		{"none", false},
+		{"none", true},
 		{"invalid", true},
 	}
 	for _, c := range cases {

@@ -25,8 +25,8 @@ func (s *SpringBootProvider) Description() string {
 
 func (s *SpringBootProvider) Flags() []providers.ProviderFlag {
 	return []providers.ProviderFlag{
-		{Name: "group", Short: "", Usage: "Group ID (e.g. com.example)", Default: "com.example"},
-		{Name: "artifact", Short: "", Usage: "Artifact ID / module name", Default: "app"},
+		{Name: "group", Short: "", Usage: "Group ID (e.g. com.example) — optional, derived from --package if omitted", Default: ""},
+		{Name: "artifact", Short: "", Usage: "Artifact ID / module name — optional, derived from app name if omitted", Default: ""},
 		{Name: "package", Short: "", Usage: "Base package name (overrides group+artifact)", Default: ""},
 		{Name: "lang", Short: "", Usage: "Language (java)", Default: "java"},
 		{Name: "template", Short: "", Usage: "Template (springboot|plain)", Default: "springboot"},

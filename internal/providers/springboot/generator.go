@@ -51,6 +51,54 @@ func initGit(dir string) error {
 	return nil
 }
 
+// resolveGroupArtifact applies derivation rules for group/artifact/package.
+// Returns group, artifact, package, or error if package cannot be determined.
+func resolveGroupArtifact(cfg providers.ProviderConfig, appName string) (string, string, string, error) {
+	// Gather explicit values
+	group, _ := cfg["Group"].(string)
+	if group == "" {
+		if s, _ := cfg["group"].(string); s != "" {
+			group = s
+		}
+	}
+	artifact, _ := cfg["Artifact"].(string)
+	if artifact == "" {
+		if s, _ := cfg["artifact"].(string); s != "" {
+			artifact = s
+		}
+	}
+	packageName, _ := cfg["PackageName"].(string)
+	if packageName == "" {
+		if s, _ := cfg["package"].(string); s != "" {
+			packageName = s
+		}
+	}
+
+	// If package provided and group missing, derive group from package (all but last segment)
+	if packageName != "" && group == "" {
+		parts := strings.Split(packageName, ".")
+		if len(parts) >= 2 {
+			group = strings.Join(parts[:len(parts)-1], ".")
+		}
+	}
+
+	// If artifact missing, derive from app name
+	if artifact == "" && appName != "" {
+		artifact = strings.ToLower(validator.SanitizeAppName(appName))
+	}
+
+	// If package missing but group+artifact present, derive package = group.artifact
+	if packageName == "" && group != "" && artifact != "" {
+		packageName = fmt.Sprintf("%s.%s", group, artifact)
+	}
+
+	// Final validation: require a package name
+	if packageName == "" {
+		return "", "", "", fmt.Errorf("package not provided; specify --package or provide --group and --artifact")
+	}
+	return group, artifact, packageName, nil
+}
+
 // checkJavaAvailable ensures Java is installed and on PATH and returns a
 // user-friendly hint if not.
 func checkJavaAvailable() error {
@@ -85,30 +133,14 @@ func GenerateProject(cfg providers.ProviderConfig) error {
 		return fmt.Errorf("AppName is required in config")
 	}
 
-	group, _ := cfg["Group"].(string)
-	if group == "" {
-		if s, _ := cfg["group"].(string); s != "" {
-			group = s
-		} else {
-			group = "com.example"
-		}
-	}
-	artifact, _ := cfg["Artifact"].(string)
-	if artifact == "" {
-		if s, _ := cfg["artifact"].(string); s != "" {
-			artifact = s
-		} else {
-			artifact = strings.ToLower(validator.SanitizeAppName(appName))
-		}
-	}
-
-	packageName, _ := cfg["PackageName"].(string)
-	if packageName == "" {
-		if s, _ := cfg["package"].(string); s != "" {
-			packageName = s
-		} else {
-			packageName = fmt.Sprintf("%s.%s", group, artifact)
-		}
+	// Resolve group, artifact and package according to rules:
+	// - If --group not set, derive from --package (all segments except last)
+	// - If --artifact not set, derive from app name
+	// - If --package not set and group+artifact are set, derive package = group.artifact
+	// - If none are set, return validation error asking for --package
+	group, artifact, packageName, err := resolveGroupArtifact(cfg, appName)
+	if err != nil {
+		return err
 	}
 
 	templateKind, _ := cfg["Template"].(string)
@@ -222,25 +254,23 @@ func GenerateProject(cfg providers.ProviderConfig) error {
 	// Source
 	pkgPath := validator.PackageToPath(packageName)
 	var appSrc string
-	var err error
+	var rerr error
 	if strings.ToLower(templateKind) == "springboot" {
-		appSrc, err = renderTemplate("application_springboot.java.tmpl", data)
+		appSrc, rerr = renderTemplate("application_springboot.java.tmpl", data)
 	} else {
-		appSrc, err = renderTemplate("application_plain.java.tmpl", data)
+		appSrc, rerr = renderTemplate("application_plain.java.tmpl", data)
 	}
-	if err != nil {
-		return err
+	if rerr != nil {
+		return rerr
 	}
 	if err := writeFile(filepath.Join(outputDir, "src", "main", "java", pkgPath, appClassName+".java"), appSrc); err != nil {
 		return err
 	}
 
-	// resources: only create application.properties for Spring Boot template
-	if strings.ToLower(templateKind) == "springboot" {
-		if s, err := renderTemplate("application.properties.tmpl", data); err == nil {
-			if err := writeFile(filepath.Join(outputDir, "src", "main", "resources", "application.properties"), s); err != nil {
-				return err
-			}
+	// resources: create application.properties for all templates
+	if s, err := renderTemplate("application.properties.tmpl", data); err == nil {
+		if err := writeFile(filepath.Join(outputDir, "src", "main", "resources", "application.properties"), s); err != nil {
+			return err
 		}
 	}
 

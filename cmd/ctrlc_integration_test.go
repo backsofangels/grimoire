@@ -117,7 +117,7 @@ func TestNonInteractiveRegression(t *testing.T) {
 		t.Fatalf("go build failed: %v\n%s", err, string(out))
 	}
 
-	run := execCommand(bin, "new", "SmokeReg", "--package", "com.test.smokeregress", "--lang", "kotlin", "--no-wrapper", "--git=false", "--vscode=false")
+	run := execCommand(bin, "new", "SmokeReg", "--package", "com.test.smokeregress", "--lang", "kotlin", "--wrapper=false", "--git=false", "--vscode=false")
 	if out, err := run.CombinedOutput(); err != nil {
 		t.Fatalf("grimoire new failed: %v\n%s", err, string(out))
 	}

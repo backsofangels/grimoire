@@ -17,9 +17,9 @@ Refer to `README.md` for full feature documentation, command reference, and proj
 
 ## Agent Progress
 
-- **Completed:** Repo bootstrap; Provider interface and registry; Android provider skeleton; Validator module and tests; Templates embedding; Generator implementation; `grimoire new` command (interactive TUI); Generator unit tests; Centralized logging wrapper (`internal/logging`) with branded helpers (`Success`, `Step`); Translation of user-facing strings to English; `grimoire add` command and provider-level `Add` API (activity|fragment|viewmodel) with DI (Hilt/Koin) and navigation wiring; Jetpack Compose template and Compose-ready Gradle support; Many unit tests covering add/generator flows (Kotlin & Java) — tests passing locally; Removed embedded Gradle wrapper assets; Runtime wrapper strategy implemented (uses system `gradle` and `--no-wrapper` option); Cleaned temporary `gradle-tmp` and updated `.gitignore`; README updates documenting `add` and Compose templates.
-- **In-Progress:** Java availability and network checks in the generator; per-OS Gradle install instructions; documentation polish and manual QA / smoke builds across platforms.
-- **Pending:** Release configuration and CI pipeline; Scoop distribution and GoReleaser finalization; cross-platform verification and packaging.
+- **Completed:** Repo bootstrap; Provider interface and registry; Android provider skeleton; Validator module and tests; Templates embedding; Generator implementation; `grimoire new` command (interactive TUI); Generator unit tests; Centralized logging wrapper (`internal/logging`) with branded helpers (`Success`, `Step`); Translation of user-facing strings to English; `grimoire add` command and provider-level `Add` API (activity|fragment|viewmodel) with DI (Hilt/Koin) and navigation wiring; Jetpack Compose template and Compose-ready Gradle support; Many unit tests covering add/generator flows (Kotlin & Java) — tests passing locally; Removed embedded Gradle wrapper assets; Runtime wrapper strategy implemented (uses system `gradle` and `--wrapper=false` option to skip wrapper generation); Cleaned temporary `gradle-tmp` and updated `.gitignore`; README updates documenting `add` and Compose templates; **Phase 3 CLI flag rationalization:** replaced `--no-wrapper` with `--wrapper` (bool, default true); Spring Boot optional `--group` and `--artifact` with derivation logic from `--package` and app name; `--module` default set to "app"; `--ui` restricted to xml|compose, `--no-ui` as canonical disable mechanism; Java + Compose incompatibility validation in Android provider; all integration tests and validation logic updated; full test suite passing.
+- **In-Progress:** Acceptance testing with built binary; per-OS Gradle install instructions; documentation polish and manual QA / smoke builds across platforms.
+- **Pending:** Release configuration and CI pipeline; Scoop distribution and GoReleaser finalization; cross-platform verification and packaging; `grimoire config` command.
 
 **Smoke Test Fixes Applied:**
 
@@ -162,11 +162,12 @@ Do not add dependencies without a strong justification. Prefer stdlib where poss
 
 - **Validate at the `cmd/` layer:** All user-provided CLI flag values must be validated in the `cmd/` layer before constructing a `ProviderConfig` and invoking provider methods. This prevents invalid inputs from reaching generation logic and provides fast, clear feedback to users.
 - **Common validations:**
-    - `--ui` / `--no-ui`: allowed values `xml | compose | none`. `--no-ui` is equivalent to `--ui none`.
+    - `--ui` / `--no-ui`: allowed values `xml | compose`. `--no-ui` disables UI generation (sets UI to "none" internally).
     - `--lang`: allowed values `kotlin | java`.
     - `--di`: allowed values `none | hilt | koin`.
+    - **Android lang/template validation:** Java language is incompatible with Compose template; validation rejects `--lang java --template compose` with error message.
 - **Interactive TUI:** prefill values from flags/config, but still enforce the same validations. If a flag is invalid, the CLI should display a user-friendly error instead of running generation.
-- **Implementation note:** Add small helper functions in `cmd/` (for example `validateUI`, `validateLang`, `validateDI`) and call them from both the non-interactive subcommands and the interactive `runAddInteractive` flow.
+- **Implementation note:** Add small helper functions in `cmd/` (for example `validateUI`, `validateLang`, `validateDI`) and call them from both the non-interactive subcommands and the interactive `runAddInteractive` flow. Conditional validation: only call `validateUI()` when UI value is not "none" (internal state set by `--no-ui`).
 
 ### Output formatting conventions
 

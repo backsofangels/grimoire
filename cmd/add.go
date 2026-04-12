@@ -104,8 +104,11 @@ var addActivityCmd = &cobra.Command{
 			logging.Info("Ignoring --layout because --ui is 'none'")
 			layout = ""
 		}
-		if err := validateUI(ui); err != nil {
+		// Only validate explicit --ui values ("none" is set via --no-ui)
+		if strings.ToLower(ui) != "none" {
+			if err := validateUI(ui); err != nil {
 			return fmt.Errorf("invalid --ui: %w", err)
+			}
 		}
 		if err := validateLang(lang); err != nil {
 			return fmt.Errorf("invalid --lang: %w", err)
@@ -188,8 +191,11 @@ var addFragmentCmd = &cobra.Command{
 			logging.Info("Ignoring --layout because --ui is 'none'")
 			layout = ""
 		}
-		if err := validateUI(ui); err != nil {
+		// Only validate explicit --ui values ("none" is set via --no-ui)
+		if strings.ToLower(ui) != "none" {
+			if err := validateUI(ui); err != nil {
 			return fmt.Errorf("invalid --ui: %w", err)
+		}
 		}
 		if err := validateLang(lang); err != nil {
 			return fmt.Errorf("invalid --lang: %w", err)
@@ -268,8 +274,11 @@ var addViewModelCmd = &cobra.Command{
 		override, _ := cmd.Flags().GetBool("override")
 
 		// validate inputs for viewmodel command
-		if err := validateUI(ui); err != nil {
+		// Only validate explicit --ui values ("none" is set via --no-ui)
+		if strings.ToLower(ui) != "none" {
+			if err := validateUI(ui); err != nil {
 			return fmt.Errorf("invalid --ui: %w", err)
+		}
 		}
 		if err := validateLang(lang); err != nil {
 			return fmt.Errorf("invalid --lang: %w", err)
@@ -307,10 +316,10 @@ func init() {
 	addCmd.PersistentFlags().Bool("nav", false, "Add navigation entry")
 
 	addCmd.PersistentFlags().StringP("package", "p", "", "Target package (e.g. com.example.app)")
-	addCmd.PersistentFlags().StringP("module", "m", "app", "Target module (default: app)")
+	addCmd.PersistentFlags().StringP("module", "m", "app", "Target module folder (default: app)")
 	addCmd.PersistentFlags().StringP("lang", "l", "kotlin", "Language (kotlin|java)")
 	addCmd.PersistentFlags().StringP("layout", "", "", "Layout resource name (optional)")
-	addCmd.PersistentFlags().StringP("ui", "", "xml", "UI type (xml|compose|none). Use --no-ui as a shortcut for --ui none")
+	addCmd.PersistentFlags().StringP("ui", "", "xml", "UI type (xml|compose). Use --no-ui to disable UI generation")
 	addCmd.PersistentFlags().Bool("no-ui", false, "Shortcut for --ui none (equivalent to --ui none)")
 	addCmd.PersistentFlags().BoolP("override", "", false, "Overwrite existing files")
 }
@@ -322,10 +331,10 @@ func validateUI(ui string) error {
 		return nil
 	}
 	switch s {
-	case "xml", "compose", "none":
+	case "xml", "compose":
 		return nil
 	default:
-		return fmt.Errorf("invalid UI type: %s (allowed: xml|compose|none)", ui)
+		return fmt.Errorf("invalid UI type: %s (allowed: xml|compose)", ui)
 	}
 }
 

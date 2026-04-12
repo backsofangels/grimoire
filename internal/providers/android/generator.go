@@ -157,7 +157,7 @@ Quick install hints:
 - Debian/Ubuntu (apt): sudo apt-get install gradle
 
 After installing, ensure 'gradle' is on your PATH and re-run ` + "`grimoire new`" + `.
-You can skip wrapper generation with '--no-wrapper' but builds will then require a local Gradle setup.
+You can skip wrapper generation by passing '--wrapper=false' but builds will then require a local Gradle setup.
 `
 	return fmt.Errorf(guide)
 }
@@ -249,12 +249,20 @@ func GenerateProject(cfg providers.ProviderConfig) error {
 		}
 	}
 
-	// detect skip-wrapper flag
+	// detect skip-wrapper flag — prefer explicit new `wrapper` flag (default true)
 	skipWrapper := false
-	if v, ok := cfg["NoWrapper"].(bool); ok && v {
+	if v, ok := cfg["Wrapper"].(bool); ok {
+		if !v {
+			skipWrapper = true
+		}
+	} else if v2, ok2 := cfg["wrapper"].(bool); ok2 {
+		if !v2 {
+			skipWrapper = true
+		}
+	} else if v3, ok3 := cfg["NoWrapper"].(bool); ok3 && v3 {
+		// backward compatibility
 		skipWrapper = true
-	}
-	if v, ok := cfg["no-wrapper"].(bool); ok && v {
+	} else if v4, ok4 := cfg["no-wrapper"].(bool); ok4 && v4 {
 		skipWrapper = true
 	}
 
