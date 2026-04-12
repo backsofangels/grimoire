@@ -174,7 +174,7 @@ The provider interface lives in `internal/providers/provider.go` — implement i
 - [x] Gradle wrapper generation
 - [x] Smoke-tested end-to-end (`assembleDebug`)
 - [x] `grimoire doctor` — environment preflight checks (JDK, Gradle, Android SDK)
-- [ ] `grimoire new` interactive wizard (TUI)
+- [x] `grimoire new` interactive wizard (TUI)
 - [ ] `grimoire add activity|fragment|viewmodel`
 - [ ] Jetpack Compose template
 - [ ] Spring Boot provider
