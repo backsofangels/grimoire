@@ -7,7 +7,85 @@ import (
 	"testing"
 
 	"github.com/backsofangels/grimoire/internal/providers"
+	"github.com/backsofangels/grimoire/internal/validator"
 )
+
+func TestGenerateProject_KotlinBasic(t *testing.T) {
+	tmp := t.TempDir()
+	outputDir := filepath.Join(tmp, "MyApp")
+
+	cfg := providers.ProviderConfig{
+		"AppName":     "MyApp",
+		"PackageName": "com.example.myapp",
+		"Lang":        "kotlin",
+		"Template":    "basic",
+		"MinSdk":      26,
+		"TargetSdk":   35,
+		"OutputDir":   outputDir,
+		"NoWrapper":   true,
+		"Git":         false,
+		"Vscode":      false,
+	}
+
+	if err := GenerateProject(cfg); err != nil {
+		t.Fatalf("GenerateProject failed: %v", err)
+	}
+
+	pkgPath := validator.PackageToPath("com.example.myapp")
+	wantFiles := []string{
+		filepath.Join(outputDir, "build.gradle"),
+		filepath.Join(outputDir, "settings.gradle"),
+		filepath.Join(outputDir, "app", "build.gradle"),
+		filepath.Join(outputDir, "app", "src", "main", "AndroidManifest.xml"),
+		filepath.Join(outputDir, "app", "src", "main", "res", "layout", "activity_main.xml"),
+		filepath.Join(outputDir, "app", "src", "main", "res", "values", "strings.xml"),
+		filepath.Join(outputDir, "app", "src", "main", "java", pkgPath, "MainActivity.kt"),
+	}
+
+	for _, f := range wantFiles {
+		if _, err := os.Stat(f); err != nil {
+			t.Fatalf("expected file %s to exist: %v", f, err)
+		}
+	}
+}
+
+func TestGenerateProject_KotlinCompose(t *testing.T) {
+	tmp := t.TempDir()
+	outputDir := filepath.Join(tmp, "ComposeApp")
+
+	cfg := providers.ProviderConfig{
+		"AppName":     "ComposeApp",
+		"PackageName": "com.example.composeapp",
+		"Lang":        "kotlin",
+		"Template":    "compose",
+		"MinSdk":      26,
+		"TargetSdk":   35,
+		"OutputDir":   outputDir,
+		"NoWrapper":   true,
+		"Git":         false,
+		"Vscode":      false,
+	}
+
+	if err := GenerateProject(cfg); err != nil {
+		t.Fatalf("GenerateProject failed: %v", err)
+	}
+
+	pkgPath := validator.PackageToPath("com.example.composeapp")
+	mainPath := filepath.Join(outputDir, "app", "src", "main", "java", pkgPath, "MainActivity.kt")
+	if _, err := os.Stat(mainPath); err != nil {
+		t.Fatalf("expected file %s to exist: %v", mainPath, err)
+	}
+
+	appBuildPath := filepath.Join(outputDir, "app", "build.gradle")
+	b, err := os.ReadFile(appBuildPath)
+	if err != nil {
+		t.Fatalf("read app build.gradle: %v", err)
+	}
+	s := string(b)
+	if !strings.Contains(s, "buildFeatures") || !strings.Contains(s, "compose true") || !strings.Contains(s, "androidx.activity:activity-compose") {
+		t.Fatalf("app/build.gradle does not contain compose configuration")
+	}
+}
 
 func TestGenerate_Basic_Kotlin(t *testing.T) {
 	tmp := t.TempDir()
@@ -144,5 +222,102 @@ func TestGenerate_OutputAlreadyExists(t *testing.T) {
 	}
 	if err := GenerateProject(cfg); err == nil {
 		t.Fatalf("expected error when output dir exists")
+	}
+}
+
+func TestGenerate_MissingAppName(t *testing.T) {
+	tmp := t.TempDir()
+	out := filepath.Join(tmp, "NoApp")
+	cfg := providers.ProviderConfig{
+		"PackageName": "com.test.noapp",
+		"Lang":        "kotlin",
+		"Template":    "basic",
+		"OutputDir":   out,
+		"Git":         false,
+		"Vscode":      false,
+		"NoWrapper":   true,
+	}
+	if err := GenerateProject(cfg); err == nil {
+		t.Fatalf("expected error for missing AppName")
+	}
+}
+
+func TestGenerate_MissingPackageName(t *testing.T) {
+	tmp := t.TempDir()
+	out := filepath.Join(tmp, "NoPkg")
+	cfg := providers.ProviderConfig{
+		"AppName":   "NoPkgApp",
+		"Lang":      "kotlin",
+		"Template":  "basic",
+		"OutputDir": out,
+		"Git":       false,
+		"Vscode":    false,
+		"NoWrapper": true,
+	}
+	if err := GenerateProject(cfg); err == nil {
+		t.Fatalf("expected error for missing PackageName")
+	}
+}
+
+func TestGenerate_InvalidAppName(t *testing.T) {
+	tmp := t.TempDir()
+	out := filepath.Join(tmp, "BadApp")
+	cfg := providers.ProviderConfig{
+		"AppName":     "1InvalidApp",
+		"PackageName": "com.test.invalidapp",
+		"Lang":        "kotlin",
+		"Template":    "basic",
+		"OutputDir":   out,
+		"Git":         false,
+		"Vscode":      false,
+		"NoWrapper":   true,
+	}
+	if err := GenerateProject(cfg); err == nil {
+		t.Fatalf("expected validation error for invalid AppName")
+	}
+}
+
+func TestGenerate_InvalidPackageName(t *testing.T) {
+	tmp := t.TempDir()
+	out := filepath.Join(tmp, "BadPkg")
+	cfg := providers.ProviderConfig{
+		"AppName":     "BadPkgApp",
+		"PackageName": "com.example",
+		"Lang":        "kotlin",
+		"Template":    "basic",
+		"OutputDir":   out,
+		"Git":         false,
+		"Vscode":      false,
+		"NoWrapper":   true,
+	}
+	if err := GenerateProject(cfg); err == nil {
+		t.Fatalf("expected validation error for invalid PackageName")
+	}
+}
+
+func TestGenerate_MinSdkDefaultApplied(t *testing.T) {
+	tmp := t.TempDir()
+	out := filepath.Join(tmp, "DefaultMinSdk")
+	cfg := providers.ProviderConfig{
+		"AppName":     "DefaultMinSdk",
+		"PackageName": "com.test.defaultmin",
+		"Lang":        "kotlin",
+		"Template":    "basic",
+		"OutputDir":   out,
+		"Git":         false,
+		"Vscode":      false,
+		"NoWrapper":   true,
+		// omit MinSdk to allow defaulting
+	}
+	if err := GenerateProject(cfg); err != nil {
+		t.Fatalf("GenerateProject failed: %v", err)
+	}
+	appBuild := filepath.Join(out, "app", "build.gradle")
+	b, err := os.ReadFile(appBuild)
+	if err != nil {
+		t.Fatalf("read app build.gradle: %v", err)
+	}
+	if !strings.Contains(string(b), "minSdk 26") {
+		t.Fatalf("expected minSdk 26 in app/build.gradle")
 	}
 }

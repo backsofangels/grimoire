@@ -21,7 +21,7 @@ var newCmd = &cobra.Command{
 		providerName, _ := cmd.Flags().GetString("provider")
 		provider, err := providers.Get(providerName)
 		if err != nil {
-			logging.Error("✗ Provider non trovato", "provider", providerName, "error", err)
+			logging.Error("✗ Provider not found", "provider", providerName, "error", err)
 			return
 		}
 
@@ -33,13 +33,13 @@ var newCmd = &cobra.Command{
 			cfg, perr = provider.Prompt()
 			if perr != nil {
 				// user aborted or prompt error
-				logging.Info("✗ Annullato: creazione progetto interrotta dall'utente")
+				logging.Info("✗ Aborted: project creation cancelled by user")
 				return
 			}
 		} else {
 			// Non-interactive mode: positional arg (app name) required
 			if len(args) == 0 {
-				logging.Error("✗ Errore: nome app richiesto")
+				logging.Error("✗ Error: app name required")
 				cmd.Usage()
 				return
 			}
@@ -109,12 +109,12 @@ var newCmd = &cobra.Command{
 
 		// Validate
 		if err := provider.Validate(cfg); err != nil {
-			logging.Error("✗ Validazione fallita", "error", err)
+			logging.Error("✗ Validation failed", "error", err)
 			return
 		}
 
 		if err := provider.Generate(cfg); err != nil {
-			logging.Error("✗ Generazione fallita", "error", err)
+			logging.Error("✗ Generation failed", "error", err)
 			return
 		}
 
@@ -164,13 +164,13 @@ func printSuccess(cfg providers.ProviderConfig) {
 
 	// Build content lines
 	lines := []string{}
-	lines = append(lines, bold.Render("✓  Progetto creato"))
+	lines = append(lines, bold.Render("✓  Project created"))
 	lines = append(lines, "")
 	lines = append(lines, purple.Copy().Bold(true).Render("  →  "+an))
 	lines = append(lines, dim.Render("     "+pkg))
 	lines = append(lines, dim.Render(fmt.Sprintf("     %s · API %d · %s template", lang, minSdk, templateKind)))
 	lines = append(lines, "")
-	lines = append(lines, dim.Render("  Prossimo passo:"))
+	lines = append(lines, dim.Render("  Next step:"))
 	lines = append(lines, purple.Render(fmt.Sprintf("     cd %s && ./gradlew assembleDebug", an)))
 
 	content := strings.Join(lines, "\n")

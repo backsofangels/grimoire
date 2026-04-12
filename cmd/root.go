@@ -43,6 +43,6 @@ func Execute(v string) {
 	// Provider flags are registered in each command's init(); avoid duplicate registration here.
 
 	if err := rootCmd.Execute(); err != nil {
-		logging.Error("✗ Comando fallito", "error", err)
+		logging.Error("✗ Command failed", "error", err)
 	}
 }

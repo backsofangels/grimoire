@@ -1,0 +1,48 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening a feature request, please check if a similar one already exists.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - New provider
+        - Android provider
+        - TUI / interactive wizard
+        - CLI / flags
+        - grimoire doctor
+        - grimoire add
+        - Documentation
+        - Distribution / Scoop
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or motivation
+      description: What problem does this feature solve?
+      placeholder: "I find it frustrating when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      placeholder: "It would be useful to have a command/flag/provider that..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Optional - other approaches you evaluated

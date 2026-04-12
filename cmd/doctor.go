@@ -19,32 +19,32 @@ var doctorCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fix, _ := cmd.Flags().GetBool("fix")
 
-		logging.Info("→ Avvio: controlli ambiente")
+		logging.Info("→ Starting environment checks")
 
 		// Java
 		javaPath, javaErr := exec.LookPath("java")
 		if javaErr != nil {
-			logging.Error("✗ Requisito mancante: Java JDK", "hint", "Installa un JDK e assicurati che 'java' sia in PATH")
+			logging.Error("✗ Missing requirement: Java JDK", "hint", "Install a JDK and ensure 'java' is on your PATH")
 		} else {
 			out, _ := exec.Command(javaPath, "-version").CombinedOutput()
 			ver := strings.Split(strings.TrimSpace(string(out)), "\n")[0]
-			logging.Info("✓ Requisito trovato: Java", "path", javaPath, "version", ver)
+			logging.Info("✓ Java found", "path", javaPath, "version", ver)
 		}
 		// JAVA_HOME
 		if v, ok := os.LookupEnv("JAVA_HOME"); ok && v != "" {
-			logging.Info("✓ Variabile rilevata: JAVA_HOME", "value", v)
+			logging.Info("✓ Environment variable detected: JAVA_HOME", "value", v)
 		} else {
-			logging.Warn("! Avviso: JAVA_HOME non impostato", "hint", "Considera impostare JAVA_HOME sulla root del JDK")
+			logging.Warn("! Warning: JAVA_HOME not set", "hint", "Consider setting JAVA_HOME to your JDK root")
 		}
 
 		// Gradle
 		gradlePath, gradleErr := exec.LookPath("gradle")
 		if gradleErr != nil {
-			logging.Error("✗ Requisito mancante: Gradle CLI", "hint", "Installa Gradle e assicurati che 'gradle' sia in PATH")
+			logging.Error("✗ Missing requirement: Gradle CLI", "hint", "Install Gradle and ensure 'gradle' is on your PATH")
 		} else {
 			out, _ := exec.Command(gradlePath, "--version").CombinedOutput()
 			ver := strings.Split(strings.TrimSpace(string(out)), "\n")[0]
-			logging.Info("✓ Requisito trovato: Gradle CLI", "path", gradlePath, "version", ver)
+			logging.Info("✓ Gradle found", "path", gradlePath, "version", ver)
 		}
 
 		// Android SDK / adb
@@ -52,21 +52,21 @@ var doctorCmd = &cobra.Command{
 		if adbErr != nil {
 			// sdkmanager as fallback
 			if _, err := exec.LookPath("sdkmanager"); err == nil {
-				logging.Info("✓ Requisito trovato: Android SDK tools (sdkmanager)")
+				logging.Info("✓ Android SDK tools found (sdkmanager)")
 			} else {
-				logging.Warn("! Avviso: Android SDK non trovato", "hint", "Installa Android SDK e aggiungi platform-tools al PATH (adb)")
+				logging.Warn("! Warning: Android SDK not found", "hint", "Install Android SDK and add platform-tools to PATH (adb)")
 			}
 		} else {
-			logging.Info("✓ Requisito trovato: adb", "path", adbPath)
+			logging.Info("✓ adb found", "path", adbPath)
 		}
 
 		// ANDROID_HOME / ANDROID_SDK_ROOT
 		if v, ok := os.LookupEnv("ANDROID_HOME"); ok && v != "" {
-			logging.Info("✓ Variabile rilevata: ANDROID_HOME", "value", v)
+			logging.Info("✓ Environment variable detected: ANDROID_HOME", "value", v)
 		} else if v, ok := os.LookupEnv("ANDROID_SDK_ROOT"); ok && v != "" {
-			logging.Info("✓ Variabile rilevata: ANDROID_SDK_ROOT", "value", v)
+			logging.Info("✓ Environment variable detected: ANDROID_SDK_ROOT", "value", v)
 		} else {
-			logging.Warn("! Avviso: variabili Android SDK non impostate", "hint", "Imposta ANDROID_SDK_ROOT o ANDROID_HOME sulla root SDK")
+			logging.Warn("! Warning: Android SDK env vars not set", "hint", "Set ANDROID_SDK_ROOT or ANDROID_HOME to your SDK root")
 		}
 
 		// Provider-specific checks
@@ -79,16 +79,16 @@ var doctorCmd = &cobra.Command{
 				for _, c := range checks {
 					if c.Run != nil {
 						if err := c.Run(); err != nil {
-							logging.Error("✗ Check fallito", "name", c.Name, "error", err)
+							logging.Error("✗ Check failed", "name", c.Name, "error", err)
 							if c.Fix != nil && fix {
 								if err := c.Fix(); err != nil {
-									logging.Error("✗ Fix automatico fallito", "name", c.Name, "error", err)
+									logging.Error("✗ Automatic fix failed", "name", c.Name, "error", err)
 								} else {
-									logging.Info("✓ Fix automatico applicato", "name", c.Name)
+									logging.Info("✓ Automatic fix applied", "name", c.Name)
 								}
 							}
 						} else {
-							logging.Info("✓ Check superato", "name", c.Name)
+							logging.Info("✓ Check passed", "name", c.Name)
 						}
 					}
 				}
@@ -103,9 +103,9 @@ var doctorCmd = &cobra.Command{
 					if javaErr == nil {
 						cand := filepath.Dir(filepath.Dir(javaPath))
 						if err := runSetx("JAVA_HOME", cand); err == nil {
-							logging.Info("✓ Impostata: JAVA_HOME", "value", cand)
+							logging.Info("✓ Set: JAVA_HOME", "value", cand)
 						} else {
-							logging.Error("✗ Errore: impossibile impostare JAVA_HOME", "error", err)
+							logging.Error("✗ Error: unable to set JAVA_HOME", "error", err)
 						}
 					}
 				}
@@ -114,13 +114,13 @@ var doctorCmd = &cobra.Command{
 					if adbErr == nil {
 						sdkroot := filepath.Dir(filepath.Dir(adbPath))
 						if err := runSetx("ANDROID_SDK_ROOT", sdkroot); err == nil {
-							logging.Info("✓ Impostata: ANDROID_SDK_ROOT", "value", sdkroot)
+							logging.Info("✓ Set: ANDROID_SDK_ROOT", "value", sdkroot)
 						} else {
-							logging.Error("✗ Errore: impossibile impostare ANDROID_SDK_ROOT", "error", err)
+							logging.Error("✗ Error: unable to set ANDROID_SDK_ROOT", "error", err)
 						}
 						// also set ANDROID_HOME for compatibility
 						if err := runSetx("ANDROID_HOME", sdkroot); err == nil {
-							logging.Info("✓ Impostata: ANDROID_HOME", "value", sdkroot)
+							logging.Info("✓ Set: ANDROID_HOME", "value", sdkroot)
 						}
 					}
 				}
@@ -135,15 +135,15 @@ var doctorCmd = &cobra.Command{
 						// try to detect java home via `java -XshowSettings:properties -version`
 						if cand, derr := detectJavaHome(javaPath); derr == nil && cand != "" {
 							if file, err := runShellExport("JAVA_HOME", cand); err == nil {
-								logging.Info("✓ Creato: JAVA_HOME aggiunto a file profilo", "file", file, "value", cand)
+								logging.Info("✓ Created: JAVA_HOME added to profile file", "file", file, "value", cand)
 							} else {
-								logging.Error("✗ Errore: impossibile appendere JAVA_HOME al profilo", "error", err)
+								logging.Error("✗ Error: unable to append JAVA_HOME to profile", "error", err)
 							}
 						} else if cand2 := filepath.Dir(filepath.Dir(javaPath)); cand2 != "" {
 							if file, err := runShellExport("JAVA_HOME", cand2); err == nil {
-								logging.Info("✓ Creato: JAVA_HOME aggiunto a file profilo", "file", file, "value", cand2)
+								logging.Info("✓ Created: JAVA_HOME added to profile file", "file", file, "value", cand2)
 							} else {
-								logging.Error("✗ Errore: impossibile appendere JAVA_HOME al profilo", "error", err)
+								logging.Error("✗ Error: unable to append JAVA_HOME to profile", "error", err)
 							}
 						}
 					}
@@ -155,18 +155,18 @@ var doctorCmd = &cobra.Command{
 						cand := filepath.Dir(filepath.Dir(adbPath))
 						if info, err := os.Stat(cand); err == nil && info.IsDir() {
 							if file, err := runShellExport("ANDROID_SDK_ROOT", cand); err == nil {
-								logging.Info("✓ Creato: ANDROID_SDK_ROOT aggiunto a file profilo", "file", file, "value", cand)
+								logging.Info("✓ Created: ANDROID_SDK_ROOT added to profile file", "file", file, "value", cand)
 							} else {
-								logging.Error("✗ Errore: impossibile appendere ANDROID_SDK_ROOT al profilo", "error", err)
+								logging.Error("✗ Error: unable to append ANDROID_SDK_ROOT to profile", "error", err)
 							}
 							if file, err := runShellExport("ANDROID_HOME", cand); err == nil {
-								logging.Info("✓ Creato: ANDROID_HOME aggiunto a file profilo", "file", file, "value", cand)
+								logging.Info("✓ Created: ANDROID_HOME added to profile file", "file", file, "value", cand)
 							}
 						}
 					}
 				}
 
-				logging.Info("→ Fix completati. Apri una nuova shell o esegui 'source' del profilo per applicare le modifiche.")
+				logging.Info("→ Fixes complete. Open a new shell or source the profile to apply changes.")
 			}
 		}
 	},
