@@ -1,0 +1,43 @@
+version: 2
+
+project_name: grimoire
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    binary: grimoire
+
+archives:
+  - format: zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  github:
+    owner: backsofangels
+    name: grimoire
+
+scoops:
+  - name: grimoire
+    repository:
+      owner: backsofangels
+      name: scoop-bucket
+      branch: main
+      token: "{{ .Env.SCOOP_TAP_TOKEN }}"
+    commit_msg_template: "Scoop update for grimoire version {{ .Tag }}"
+    homepage: "https://github.com/backsofangels/grimoire"
+    description: "CLI scaffolding tool to initialize Android projects from the terminal"
+    license: Apache-2.0
