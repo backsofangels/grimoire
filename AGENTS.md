@@ -17,17 +17,22 @@ Refer to `README.md` for full feature documentation, command reference, and proj
 
 ## Agent Progress
 
-- **Completed:** Repo bootstrap; Provider interface and registry; Android provider skeleton; Validator module and tests; Templates embedding; Generator implementation; `grimoire new` command (interactive TUI); Generator unit tests; Centralized logging wrapper (`internal/logging`) with branded helpers (`Success`, `Step`); Translation of user-facing strings to English; `grimoire add` command and provider-level `Add` API (activity|fragment|viewmodel) with DI (Hilt/Koin) and navigation wiring; Jetpack Compose template and Compose-ready Gradle support; Many unit tests covering add/generator flows (Kotlin & Java) — tests passing locally; Removed embedded Gradle wrapper assets; Runtime wrapper strategy implemented (uses system `gradle` and `--no-wrapper` option); Cleaned temporary `gradle-tmp` and updated `.gitignore`; README updates documenting `add` and Compose templates.
-- **In-Progress:** Java availability and network checks in the generator; per-OS Gradle install instructions; documentation polish and manual QA / smoke builds across platforms.
-- **Pending:** Release configuration and CI pipeline; Scoop distribution and GoReleaser finalization; cross-platform verification and packaging.
+- **Completed:** Repo bootstrap; Provider interface and registry; Android provider skeleton; Validator module and tests; Templates embedding; Generator implementation; `grimoire new` command (interactive TUI); Generator unit tests; Centralized logging wrapper (`internal/logging`) with branded helpers (`Success`, `Step`); Translation of user-facing strings to English; `grimoire add` command and provider-level `Add` API (activity|fragment|viewmodel) with DI (Hilt/Koin) and navigation wiring; Jetpack Compose template and Compose-ready Gradle support; Many unit tests covering add/generator flows (Kotlin & Java) — tests passing locally; Removed embedded Gradle wrapper assets; Runtime wrapper strategy implemented; Cleaned temporary `gradle-tmp` and updated `.gitignore`; README updates; **Phase 3 CLI flag rationalization:** replaced `--no-wrapper` with `--wrapper`; Spring Boot optional `--group` and `--artifact`; `--module` default set to "app"; `--ui` restricted to xml|compose; Java + Compose incompatibility validation; **Phase 4 Code Quality & Refactoring (Completed):** Removed unused imports and formatting cleanup; extracted string and numeric constants; created normalization utilities (`internal/common`); consolidated validation functions and created config extraction helpers; created template render helper and broke down GenerateProject functions; reduced nesting in Add function; created test helpers with builder pattern; parameterized validation tests; implemented base provider functionality; **Enhanced config system** (`internal/config/config.go`) with persistence to `~/.grimoire/config.json`, validation logic, merge semantics for CLI flags/wizard/defaults, full unit test coverage; all phases verified with passing test suite.
+- **In-Progress:** Acceptance testing with built binary; per-OS Gradle install instructions; documentation polish and manual QA / smoke builds across platforms.
+- **Pending:** `grimoire config` command (set/get/list/reset); Release configuration and CI pipeline; Scoop distribution and GoReleaser finalization; cross-platform verification and packaging.
 
 **Smoke Test Fixes Applied:**
 
-- Added Kotlin Gradle plugin classpath (`org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.23`) to top-level `build.gradle` template.
-- Added `org.jetbrains.kotlin:kotlin-stdlib:1.9.23` to app dependencies for Kotlin projects.
+- Upgraded Android Gradle Plugin to `8.4.0` (from 8.3.0) for proper compileSdk 35 support without warnings.
+- Updated Kotlin Gradle plugin to `1.9.22` (downgraded from 1.9.23 for Compose Compiler compatibility).
+- Added `kotlin-stdlib:1.9.22` to app dependencies for Kotlin projects (compatible with Compose Compiler 1.5.10).
+- Set Compose Compiler to `1.5.10` with explicit version pinning in composeOptions for Compose templates.
 - Added `namespace` to the module `build.gradle` template and removed `package` from generated `AndroidManifest.xml` (AGP expects `namespace` in build files).
 - Added Android XML namespace (`xmlns:android`) and `android:exported="true"` to the activity manifest entry (required for Android 12+).
-- Ensured `compileOptions` and `kotlinOptions` align (Java/Kotlin target set to 1.8) to avoid JVM target mismatches on machines running newer JDKs.
+- Ensured `compileOptions` and `kotlinOptions` align (Java/Kotlin target set to 1.8) to avoid JVM target mismatches.
+- Added `android.suppressUnsupportedCompileSdk=<targetSdk>` to `gradle.properties` to suppress AGP warnings.
+- Fixed Spring Boot **Maven** template to use Java 17 (upgraded from 11) matching Spring Boot 3.2.0 requirement.
+- Added Spring Boot parent declaration to pom.xml for proper dependency management.
 
 ## Repository Layout
 
@@ -162,11 +167,12 @@ Do not add dependencies without a strong justification. Prefer stdlib where poss
 
 - **Validate at the `cmd/` layer:** All user-provided CLI flag values must be validated in the `cmd/` layer before constructing a `ProviderConfig` and invoking provider methods. This prevents invalid inputs from reaching generation logic and provides fast, clear feedback to users.
 - **Common validations:**
-    - `--ui` / `--no-ui`: allowed values `xml | compose | none`. `--no-ui` is equivalent to `--ui none`.
+    - `--ui` / `--no-ui`: allowed values `xml | compose`. `--no-ui` disables UI generation (sets UI to "none" internally).
     - `--lang`: allowed values `kotlin | java`.
     - `--di`: allowed values `none | hilt | koin`.
+    - **Android lang/template validation:** Java language is incompatible with Compose template; validation rejects `--lang java --template compose` with error message.
 - **Interactive TUI:** prefill values from flags/config, but still enforce the same validations. If a flag is invalid, the CLI should display a user-friendly error instead of running generation.
-- **Implementation note:** Add small helper functions in `cmd/` (for example `validateUI`, `validateLang`, `validateDI`) and call them from both the non-interactive subcommands and the interactive `runAddInteractive` flow.
+- **Implementation note:** Add small helper functions in `cmd/` (for example `validateUI`, `validateLang`, `validateDI`) and call them from both the non-interactive subcommands and the interactive `runAddInteractive` flow. Conditional validation: only call `validateUI()` when UI value is not "none" (internal state set by `--no-ui`).
 
 ### Output formatting conventions
 
@@ -196,21 +202,21 @@ Implement features in this exact order. Do not skip ahead.
 
 ### v0.1.0 — Core scaffolding
 
-- [ ] `Provider` interface in `internal/providers/provider.go`
-- [ ] Provider registry in `internal/providers/registry.go`
-- [ ] Android provider skeleton in `internal/providers/android/provider.go`
-- [ ] `grimoire new` command (non-interactive, all flags explicit)
-- [ ] Templates: `empty` and `basic` (Kotlin only)
-- [ ] `.vscode/settings.json` and `.vscode/extensions.json` generation
-- [ ] Git init via `os/exec`
-- [ ] Gradle wrapper files included as embedded assets
-- [ ] `validator.go`: package name and app name validation
+- [x] `Provider` interface in `internal/providers/provider.go`
+- [x] Provider registry in `internal/providers/registry.go`
+- [x] Android provider skeleton in `internal/providers/android/provider.go`
+- [x] `grimoire new` command (non-interactive, all flags explicit)
+- [x] Templates: `empty` and `basic` (Kotlin only)
+- [x] `.vscode/settings.json` and `.vscode/extensions.json` generation
+- [x] Git init via `os/exec`
+- [x] Gradle wrapper files included as embedded assets
+- [x] `validator.go`: package name and app name validation
 
 ### v0.2.0 — Environment checks
 
-- [ ] `grimoire doctor` command
-- [ ] Android doctor checks: JDK, JAVA_HOME, ANDROID_HOME, Build-Tools, Platform
-- [ ] `--fix` flag: auto-set JAVA_HOME on Windows via `setx`
+- [x] `grimoire doctor` command
+- [x] Android doctor checks: JDK, JAVA_HOME, ANDROID_HOME, Build-Tools, Platform
+- [x] `--fix` flag: auto-set JAVA_HOME on Windows via `setx`
 
 ### v0.3.0 — Interactive wizard
 
@@ -232,8 +238,8 @@ Implement features in this exact order. Do not skip ahead.
 
 ### v0.6.0 — Config command
 
-- [ ] `grimoire config set/get/list/reset`
-- [ ] `~/.grimoire/config.json` read/write via `internal/config`
+- [x] `~/.grimoire/config.json` read/write persistence via `internal/config` (validation & merge logic)
+- [ ] `grimoire config set/get/list/reset` command
 
 ### v1.0.0 — Stable + Scoop distribution
 
@@ -241,11 +247,11 @@ Implement features in this exact order. Do not skip ahead.
 - [ ] GoReleaser config finalized (Windows amd64 + arm64)
 - [ ] GitHub Actions release workflow
 - [ ] Scoop manifest in separate `scoop-bucket` repository
-- [ ] Full test coverage for generator and validator
+- [x] Full test coverage for generator and validator (unit tests comprehensive; integration tests for new/add)
 
 ### v1.x — Future providers
 
-- [ ] Spring Boot provider (`--provider springboot`)
+- [x] Spring Boot provider (`--provider springboot`) — basic template implementation
 - [ ] Ktor provider (`--provider ktor`)
 
 ---

@@ -58,7 +58,7 @@ func TestNewIntegrationCLI(t *testing.T) {
 		t.Fatalf("go build failed: %v\n%s", err, string(out))
 	}
 
-	run := execCommand(bin, "new", "SmokeCLI2", "--package", "com.test.smokecli2", "--lang", "kotlin", "--no-wrapper", "--git=false", "--vscode=false")
+	run := execCommand(bin, "new", "SmokeCLI2", "--package", "com.test.smokecli2", "--lang", "kotlin", "--wrapper=false", "--git=false", "--vscode=false")
 	run.Dir = tmp
 	if out, err := run.CombinedOutput(); err != nil {
 		t.Fatalf("grimoire new failed: %v\n%s", err, string(out))

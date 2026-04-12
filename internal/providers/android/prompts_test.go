@@ -9,7 +9,7 @@ import (
 
 func TestInitialStateDefaults(t *testing.T) {
 	cfg := config.DefaultConfig()
-	appName, pkg, out, lang, minSdkStr, tmpl, git, vscode := initialState(cfg)
+	appName, pkg, out, lang, minSdkStr, tmpl, useWrapper, git, vscode := initialState(cfg)
 	if appName != "" {
 		t.Fatalf("expected empty appName, got %q", appName)
 	}
@@ -27,6 +27,9 @@ func TestInitialStateDefaults(t *testing.T) {
 	}
 	if tmpl != cfg.DefaultTemplate {
 		t.Fatalf("expected template %q, got %q", cfg.DefaultTemplate, tmpl)
+	}
+	if !useWrapper {
+		t.Fatalf("expected useWrapper true by default, got %v", useWrapper)
 	}
 	if git != cfg.Git {
 		t.Fatalf("expected git %v, got %v", cfg.Git, git)

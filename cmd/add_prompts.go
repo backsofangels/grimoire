@@ -10,6 +10,7 @@ import (
 
 	"github.com/backsofangels/grimoire/internal/logging"
 	"github.com/backsofangels/grimoire/internal/providers"
+	"github.com/backsofangels/grimoire/internal/validator"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -178,13 +179,16 @@ func runAddInteractive(cmd *cobra.Command, provider providers.Provider, kind str
 	}
 
 	// Validate inputs
-	if err := validateUI(ui); err != nil {
+	// Only validate explicit UI values; interactive selection may set 'none'
+	if strings.ToLower(ui) != "none" {
+		if err := validator.ValidateUI(ui); err != nil {
+			return err
+		}
+	}
+	if err := validator.ValidateLanguage(lang); err != nil {
 		return err
 	}
-	if err := validateLang(lang); err != nil {
-		return err
-	}
-	if err := validateDI(di); err != nil {
+	if err := validator.ValidateDI(di); err != nil {
 		return err
 	}
 

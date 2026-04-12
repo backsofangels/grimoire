@@ -4,3 +4,5 @@ org.gradle.jvmargs=-Xmx2048m
 {{- if eq .Lang "kotlin" }}
 kotlin.code.style=official
 {{- end }}
+# Suppress AGP compatibility warnings when using newer compileSdk values
+android.suppressUnsupportedCompileSdk={{.TargetSdk}}
