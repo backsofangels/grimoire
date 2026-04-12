@@ -37,13 +37,18 @@ var newCmd = &cobra.Command{
 				return
 			}
 		} else {
-			// Non-interactive mode: positional arg (app name) required
-			if len(args) == 0 {
+			// Non-interactive mode: accept either positional arg or --app-name flag
+			appNameFlag, _ := cmd.Flags().GetString("app-name")
+			var appName string
+			if appNameFlag != "" {
+				appName = appNameFlag
+			} else if len(args) > 0 {
+				appName = args[0]
+			} else {
 				logging.Error("✗ Error: app name required")
 				cmd.Usage()
 				return
 			}
-			appName := args[0]
 
 			// Build config from flags
 			cfg = providers.ProviderConfig{}
@@ -180,6 +185,8 @@ func printSuccess(cfg providers.ProviderConfig) {
 }
 
 func init() {
+	// support explicit --app-name flag in addition to positional arg
+	newCmd.Flags().String("app-name", "", "Application name (alternative to positional app-name)")
 	// Register flags for known providers dynamically (android exists by default)
 	if p, err := providers.Get("android"); err == nil {
 		for _, f := range p.Flags() {

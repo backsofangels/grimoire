@@ -17,22 +17,21 @@ Refer to `README.md` for full feature documentation, command reference, and proj
 
 ## Agent Progress
 
-- **Completed:** Repo bootstrap; Provider interface and registry; Android provider skeleton; Validator module and tests; Templates embedding; Generator implementation; `grimoire new` command; Generator unit tests; Removed embedded Gradle wrapper assets; Runtime wrapper strategy implemented (uses system `gradle` and `--no-wrapper` option); Cleaned temporary `gradle-tmp` and updated `.gitignore`; Smoke end-to-end test completed (assembleDebug) on a verified environment.
-- **In-Progress:** Java availability and network checks in generator (Java check implemented); Formalize per-OS Gradle install instructions; documentation and cleanup.
-- **Pending:** Release configuration and CI; Final cleanup, rebuild and verification across platforms.
+- **Completed:** Repo bootstrap; Provider interface and registry; Android provider skeleton; Validator module and tests; Templates embedding; Generator implementation; `grimoire new` command (interactive TUI); Generator unit tests; Centralized logging wrapper (`internal/logging`) with branded helpers (`Success`, `Step`); Translation of user-facing strings to English; `grimoire add` command and provider-level `Add` API (activity|fragment|viewmodel) with DI (Hilt/Koin) and navigation wiring; Jetpack Compose template and Compose-ready Gradle support; Many unit tests covering add/generator flows (Kotlin & Java) — tests passing locally; Removed embedded Gradle wrapper assets; Runtime wrapper strategy implemented (uses system `gradle` and `--no-wrapper` option); Cleaned temporary `gradle-tmp` and updated `.gitignore`; README updates documenting `add` and Compose templates.
+- **In-Progress:** Java availability and network checks in the generator; per-OS Gradle install instructions; documentation polish and manual QA / smoke builds across platforms.
+- **Pending:** Release configuration and CI pipeline; Scoop distribution and GoReleaser finalization; cross-platform verification and packaging.
 
 **Smoke Test Fixes Applied:**
+
 - Added Kotlin Gradle plugin classpath (`org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.23`) to top-level `build.gradle` template.
 - Added `org.jetbrains.kotlin:kotlin-stdlib:1.9.23` to app dependencies for Kotlin projects.
 - Added `namespace` to the module `build.gradle` template and removed `package` from generated `AndroidManifest.xml` (AGP expects `namespace` in build files).
 - Added Android XML namespace (`xmlns:android`) and `android:exported="true"` to the activity manifest entry (required for Android 12+).
 - Ensured `compileOptions` and `kotlinOptions` align (Java/Kotlin target set to 1.8) to avoid JVM target mismatches on machines running newer JDKs.
 
-
-
 ## Repository Layout
 
-```
+```text
 grimoire/
 ├── cmd/                          # Cobra CLI commands — one file per command
 │   ├── root.go                   # Root command, persistent flags, version
@@ -41,6 +40,7 @@ grimoire/
 │   ├── doctor.go                 # grimoire doctor
 │   └── config.go                 # grimoire config
 ├── internal/
+│   ├── logging/                # Centralized logging wrapper (internal/logging/logging.go)
 │   ├── providers/
 │   │   ├── provider.go           # Provider interface + ProviderConfig + Check types
 │   │   ├── registry.go           # Global provider registry (register all providers here)
@@ -99,6 +99,7 @@ type Provider interface {
 ```
 
 The `cmd/` layer only:
+
 1. Resolves the active provider from `--provider` flag or `config`
 2. Merges CLI flags into a `ProviderConfig` map
 3. Calls the appropriate provider method
@@ -124,6 +125,7 @@ Priority order: **CLI flags > wizard input > config defaults > hardcoded default
 ### 4. `grimoire doctor --fix` must be non-destructive
 
 Auto-fix actions are limited to:
+
 - Setting environment variables via `setx` (Windows) or shell profile append (Unix)
 - Never modifying SDK files, PATH entries not related to Grimoire, or system settings
 
@@ -136,7 +138,7 @@ Use only Go's stdlib `text/template`. Do not add Handlebars, Mustache, or simila
 ## Dependencies
 
 | Package | Version | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `github.com/spf13/cobra` | latest | CLI command/flag framework |
 | `github.com/charmbracelet/huh` | latest | Interactive wizard UI |
 | `github.com/charmbracelet/lipgloss` | latest | Terminal output styling |
@@ -150,17 +152,27 @@ Do not add dependencies without a strong justification. Prefer stdlib where poss
 
 - **Go version**: 1.22+
 - **Error handling**: always wrap errors with `fmt.Errorf("context: %w", err)`, never silently discard
-- **Logging**: use `charmbracelet/log` for all user-facing output, not `fmt.Println`
+- **Logging**: use `internal/logging` wrapper for all user-facing output (helpers: `Init`, `Info`, `Warn`, `Error`, `Success`, `Step`); avoid `fmt.Println`. The wrapper uses `charmbracelet/log` under the hood.
 - **File paths**: always use `filepath.Join()`, never hardcode `/` or `\` separators
 - **OS detection**: use `runtime.GOOS` for platform-specific logic (e.g. `setx` on Windows)
 - **Tests**: every `generator.go` and `validator.go` must have a corresponding `_test.go`
 - **Exported symbols**: only export what is used outside the package
 
+### CLI Input Validation
+
+- **Validate at the `cmd/` layer:** All user-provided CLI flag values must be validated in the `cmd/` layer before constructing a `ProviderConfig` and invoking provider methods. This prevents invalid inputs from reaching generation logic and provides fast, clear feedback to users.
+- **Common validations:**
+    - `--ui` / `--no-ui`: allowed values `xml | compose | none`. `--no-ui` is equivalent to `--ui none`.
+    - `--lang`: allowed values `kotlin | java`.
+    - `--di`: allowed values `none | hilt | koin`.
+- **Interactive TUI:** prefill values from flags/config, but still enforce the same validations. If a flag is invalid, the CLI should display a user-friendly error instead of running generation.
+- **Implementation note:** Add small helper functions in `cmd/` (for example `validateUI`, `validateLang`, `validateDI`) and call them from both the non-interactive subcommands and the interactive `runAddInteractive` flow.
+
 ### Output formatting conventions
 
 Use consistent prefixes for terminal output:
 
-```
+```text
 ✓  Success / created file
 ✗  Error / missing requirement
 !  Warning / suggestion
@@ -168,10 +180,13 @@ Use consistent prefixes for terminal output:
 ```
 
 Colors via `lipgloss`:
+
 - Green → success
 - Red → error
 - Yellow → warning
 - Cyan → paths, values, highlights
+
+- Use the `internal/logging` helpers `Success` and `Step` for multi-step and branded messages.
 
 ---
 
@@ -180,6 +195,7 @@ Colors via `lipgloss`:
 Implement features in this exact order. Do not skip ahead.
 
 ### v0.1.0 — Core scaffolding
+
 - [ ] `Provider` interface in `internal/providers/provider.go`
 - [ ] Provider registry in `internal/providers/registry.go`
 - [ ] Android provider skeleton in `internal/providers/android/provider.go`
@@ -191,37 +207,44 @@ Implement features in this exact order. Do not skip ahead.
 - [ ] `validator.go`: package name and app name validation
 
 ### v0.2.0 — Environment checks
+
 - [ ] `grimoire doctor` command
 - [ ] Android doctor checks: JDK, JAVA_HOME, ANDROID_HOME, Build-Tools, Platform
 - [ ] `--fix` flag: auto-set JAVA_HOME on Windows via `setx`
 
 ### v0.3.0 — Interactive wizard
-- [ ] `grimoire new` wizard mode using `charmbracelet/huh`
-- [ ] Pre-fill wizard from `~/.grimoire/config.json`
+
+- [x] `grimoire new` wizard mode using `charmbracelet/huh`
+- [x] Pre-fill wizard from `~/.grimoire/config.json`
 
 ### v0.4.0 — Add command
-- [ ] `grimoire add activity`
-- [ ] `grimoire add fragment`
-- [ ] `grimoire add viewmodel`
+
+- [x] `grimoire add activity`
+- [x] `grimoire add fragment`
+- [x] `grimoire add viewmodel`
 - [ ] `grimoire add module`
 
 ### v0.5.0 — Compose template
-- [ ] `--template compose` for Android provider
-- [ ] Compose BOM in `build.gradle`
-- [ ] Starter `Greeting` composable template
+
+- [x] `--template compose` for Android provider
+- [x] Compose BOM in `build.gradle`
+- [x] Starter `Greeting` composable template
 
 ### v0.6.0 — Config command
+
 - [ ] `grimoire config set/get/list/reset`
 - [ ] `~/.grimoire/config.json` read/write via `internal/config`
 
 ### v1.0.0 — Stable + Scoop distribution
-- [ ] Java language support in Android provider (`--lang java`)
+
+- [x] Java language support in Android provider (`--lang java`)
 - [ ] GoReleaser config finalized (Windows amd64 + arm64)
 - [ ] GitHub Actions release workflow
 - [ ] Scoop manifest in separate `scoop-bucket` repository
 - [ ] Full test coverage for generator and validator
 
 ### v1.x — Future providers
+
 - [ ] Spring Boot provider (`--provider springboot`)
 - [ ] Ktor provider (`--provider ktor`)
 
@@ -265,9 +288,9 @@ No changes to `cmd/` are needed.
 ## Key Files Reference
 
 | File | Role |
-|---|---|
-| `GRIMOIRE.md` | Full project spec — source of truth for features and UX |
+| --- | --- |
 | `AGENTS.md` | This file — instructions for coding agents |
 | `internal/providers/provider.go` | Provider interface — do not change without updating all implementations |
 | `internal/providers/registry.go` | Add new providers here only |
 | `internal/providers/android/` | Reference implementation — follow this pattern for new providers |
+| `internal/logging/logging.go` | Centralized logging wrapper used by commands and providers |
