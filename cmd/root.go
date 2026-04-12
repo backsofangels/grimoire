@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+
+	"github.com/backsofangels/grimoire/internal/logging"
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 )
@@ -16,7 +18,8 @@ var rootCmd = &cobra.Command{
 	Short: "Grimoire CLI scaffolding tool",
 	Run: func(cmd *cobra.Command, args []string) {
 		if showVersion {
-			fmt.Printf("grimoire %s\n", version)
+			// Print version only when explicitly requested.
+			fmt.Println("grimoire", version)
 			return
 		}
 		_ = cmd.Help()
@@ -26,8 +29,13 @@ var rootCmd = &cobra.Command{
 // Execute runs the root command.
 func Execute(v string) {
 	version = v
-	// initialize logger (lightweight)
-	log.Info("logger initialized", "version", version)
+	// initialize logger (centralized)
+	logging.Init()
+	// Configure global logger appearance: remove timestamps, hide caller, and
+	// default to Warn level so INFO logs are not shown in normal usage.
+	log.SetTimeFormat("")
+	log.SetReportCaller(false)
+	log.SetLevel(log.WarnLevel)
 
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "Print version")
 	// default provider
@@ -35,6 +43,6 @@ func Execute(v string) {
 	// Provider flags are registered in each command's init(); avoid duplicate registration here.
 
 	if err := rootCmd.Execute(); err != nil {
-		log.Error("command failed", "error", err)
+		logging.Error("✗ Comando fallito", "error", err)
 	}
 }

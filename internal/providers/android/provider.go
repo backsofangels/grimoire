@@ -26,9 +26,8 @@ func (a *AndroidProvider) Flags() []providers.ProviderFlag {
 	}
 }
 
-func (a *AndroidProvider) Prompt() (providers.ProviderConfig, error) {
-	return providers.ProviderConfig{}, nil
-}
+// Prompt is implemented in prompts.go (interactive wizard).
+// The implementation is separated to avoid cluttering the main provider file.
 
 func (a *AndroidProvider) Validate(cfg providers.ProviderConfig) error {
 	// Basic validation left to validator package; provider-level checks can go here.

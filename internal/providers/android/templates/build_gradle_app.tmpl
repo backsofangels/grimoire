@@ -22,6 +22,17 @@ android {
     }
     {{- end }}
 
+    {{- /* Enable Jetpack Compose for Kotlin projects using the 'compose' template */ -}}
+    {{- if and (eq .Lang "kotlin") (eq .Template "compose") }}
+    buildFeatures {
+        compose true
+    }
+    composeOptions {
+        // Choose a compatible Compose compiler version for the Kotlin plugin used above
+        kotlinCompilerExtensionVersion = "1.5.3"
+    }
+    {{- end }}
+
     defaultConfig {
         applicationId "{{.PackageName}}"
         minSdk {{.MinSdk}}
@@ -38,5 +49,13 @@ dependencies {
     {{- if eq .Lang "kotlin" }}
     // Kotlin standard library
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.23"
+    {{- end }}
+    {{- if and (eq .Lang "kotlin") (eq .Template "compose") }}
+    // Jetpack Compose dependencies
+    implementation "androidx.activity:activity-compose:1.8.0"
+    implementation "androidx.compose.ui:ui:1.4.3"
+    implementation "androidx.compose.material3:material3:1.0.1"
+    implementation "androidx.compose.ui:ui-tooling-preview:1.4.3"
+    debugImplementation "androidx.compose.ui:ui-tooling:1.4.3"
     {{- end }}
 }

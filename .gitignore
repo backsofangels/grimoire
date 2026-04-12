@@ -34,4 +34,5 @@ gradle-*.zip
 */build/
 */.gradle/
 
-AGENTS.md
+# IDE files
+.vscode/

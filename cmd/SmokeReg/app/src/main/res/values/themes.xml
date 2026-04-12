@@ -1,0 +1,5 @@
+<resources>
+    <style name="Theme.SmokeReg" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize theme here -->
+    </style>
+</resources>

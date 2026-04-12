@@ -334,18 +334,23 @@ func GenerateProject(cfg providers.ProviderConfig) error {
 	// source directory and main activity
 	pkgPath := validator.PackageToPath(packageName)
 	if lang == "kotlin" {
-		if templateKind == "basic" {
+		switch templateKind {
+		case "basic":
 			src, _ := renderTemplate("MainActivity.kt.tmpl", data)
 			if err := writeFile(filepath.Join(outputDir, "app", "src", "main", "java", pkgPath, "MainActivity.kt"), src); err != nil {
 				return err
 			}
 			layout, _ := renderTemplate("activity_main.xml.tmpl", data)
-			if templateKind == "basic" {
-				if err := writeFile(filepath.Join(outputDir, "app", "src", "main", "res", "layout", "activity_main.xml"), layout); err != nil {
-					return err
-				}
+			if err := writeFile(filepath.Join(outputDir, "app", "src", "main", "res", "layout", "activity_main.xml"), layout); err != nil {
+				return err
 			}
-		} else {
+		case "compose":
+			// Compose activity: generate a Compose-based MainActivity
+			src, _ := renderTemplate("MainActivity_compose.kt.tmpl", data)
+			if err := writeFile(filepath.Join(outputDir, "app", "src", "main", "java", pkgPath, "MainActivity.kt"), src); err != nil {
+				return err
+			}
+		default:
 			src, _ := renderTemplate("MainActivity_empty.kt.tmpl", data)
 			if err := writeFile(filepath.Join(outputDir, "app", "src", "main", "java", pkgPath, "MainActivity.kt"), src); err != nil {
 				return err
