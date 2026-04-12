@@ -202,7 +202,7 @@ The provider interface lives in `internal/providers/provider.go` — implement i
 - [x] `grimoire add activity|fragment|viewmodel`
 - [x] Jetpack Compose template
 - [x] Spring Boot provider
-- [ ] Scoop distribution (v1.0.0)
+- [x] Scoop distribution (v1.0.0)
 
 ---
 
