@@ -2,16 +2,13 @@ package android
 
 import (
 	"fmt"
-	"os"
 	"strconv"
-	"strings"
-	"unicode/utf8"
 
 	"github.com/backsofangels/grimoire/internal/config"
 	"github.com/backsofangels/grimoire/internal/providers"
+	"github.com/backsofangels/grimoire/internal/tui"
 	"github.com/backsofangels/grimoire/internal/validator"
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // Prompt displays an interactive wizard for the Android provider.
@@ -23,63 +20,11 @@ func (p *AndroidProvider) Prompt() (providers.ProviderConfig, error) {
 	cfg, _ := config.Load()
 
 	// initialize form values from config
-	appName, packageName, outputDir, lang, minSdkStr, template, initGit, vscode := initialState(cfg)
+	appName, packageName, outputDir, lang, minSdkStr, template, useWrapper, initGit, vscode := initialState(cfg)
 
-	// Build a custom theme that matches Grimoire's identity. We keep the
-	// terminal background (transparent) and tune accent/focus colors.
-	purple := lipgloss.Color("135")
-	white := lipgloss.Color("255")
-	dim := lipgloss.Color("#666666")
-	// dimWhite used for subtitle and other subtle text
-	dimWhite := lipgloss.Color("240")
-
-	th := huh.ThemeBase()
-	// Focused border accent
-	th.Focused.Base = th.Focused.Base.BorderForeground(purple)
-	// Input cursor color
-	th.Focused.TextInput.Cursor = th.Focused.TextInput.Cursor.Foreground(purple)
-	// Active selection (option) purple + bold
-	th.Focused.SelectSelector = th.Focused.SelectSelector.Foreground(purple)
-	th.Focused.Option = th.Focused.Option.Foreground(purple).Bold(true)
-	// Inactive selection: dimmed white
-	th.Focused.UnselectedOption = th.Focused.UnselectedOption.Foreground(dimWhite)
-	th.Blurred.UnselectedOption = th.Blurred.UnselectedOption.Foreground(dimWhite)
-	th.Blurred.Option = th.Blurred.Option.Foreground(dimWhite)
-	// Titles and descriptions
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(white)
-	sepStyle := lipgloss.NewStyle().Foreground(purple)
-	th.Focused.Title = titleStyle
-	th.Group.Title = titleStyle
-	th.Group.Description = lipgloss.NewStyle().Foreground(dim)
-
-	// Helper to render a styled group title with a short separator underneath.
-	renderGroupTitle := func(s string) string {
-		// Render the bold white title
-		rendered := titleStyle.Render(s)
-		// Separator length matches title rune length (clamped)
-		width := utf8.RuneCountInString(s)
-		if width < 6 {
-			width = 6
-		}
-		if width > 36 {
-			width = 36
-		}
-		sep := strings.Repeat("─", width)
-		return rendered + "\n" + sepStyle.Render(sep)
-	}
-
-	// Branded header printed once before the form runs (skip if already printed)
-	if os.Getenv("GRIMOIRE_HEADER_PRINTED") == "" {
-		headerBanner := "🔮 grimoire — new project"
-		headerStyle := lipgloss.NewStyle().Border(lipgloss.ThickBorder()).BorderLeft(true).BorderLeftForeground(purple).PaddingLeft(1).Bold(true).Foreground(white)
-		subtitleStyle := lipgloss.NewStyle().Foreground(dimWhite)
-		fmt.Println(headerStyle.Render(headerBanner))
-		fmt.Println(subtitleStyle.Render("Use arrow keys · Enter to confirm · Ctrl+C to cancel"))
-		fmt.Println()
-	}
-
-	// Build the form with one field per step so the TUI shows a single
-	// prompt at a time rather than multiple prompts on the same screen.
+	// Create theme
+	theme := tui.NewTheme()
+	theme.PrintHeader()
 
 	// Template select is dynamic: show 'compose' only when language == kotlin.
 	templateSelect := huh.NewSelect[string]().
@@ -103,7 +48,7 @@ func (p *AndroidProvider) Prompt() (providers.ProviderConfig, error) {
 				Description("PascalCase recommended (e.g. MyApp)").
 				Value(&appName).
 				Validate(func(s string) error { return validator.ValidateAppName(s) }),
-		).Title(renderGroupTitle("Step 1 — App name")),
+		).Title(theme.RenderGroupTitle("Step 1 — App name")),
 
 		huh.NewGroup(
 			huh.NewInput().
@@ -111,14 +56,14 @@ func (p *AndroidProvider) Prompt() (providers.ProviderConfig, error) {
 				Description("Reverse domain notation (e.g. com.example.myapp)").
 				Value(&packageName).
 				Validate(func(s string) error { return validator.ValidatePackageName(s) }),
-		).Title(renderGroupTitle("Step 2 — Package name")),
+		).Title(theme.RenderGroupTitle("Step 2 — Package name")),
 
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Output directory").
 				Description("Leave empty to use ./<app-name>").
 				Value(&outputDir),
-		).Title(renderGroupTitle("Step 3 — Output directory")),
+		).Title(theme.RenderGroupTitle("Step 3 — Output directory")),
 
 		huh.NewGroup(
 			huh.NewSelect[string]().
@@ -128,7 +73,7 @@ func (p *AndroidProvider) Prompt() (providers.ProviderConfig, error) {
 					huh.NewOption("Java", "java"),
 				).
 				Value(&lang),
-		).Title(renderGroupTitle("Step 4 — Language")),
+		).Title(theme.RenderGroupTitle("Step 4 — Language")),
 
 		huh.NewGroup(
 			huh.NewSelect[string]().
@@ -142,21 +87,28 @@ func (p *AndroidProvider) Prompt() (providers.ProviderConfig, error) {
 					huh.NewOption("API 35 — Android 15", "35"),
 				).
 				Value(&minSdkStr),
-		).Title(renderGroupTitle("Step 5 — Minimum SDK")),
+		).Title(theme.RenderGroupTitle("Step 5 — Minimum SDK")),
 
-		huh.NewGroup(templateSelect).Title(renderGroupTitle("Step 6 — Template")),
+		huh.NewGroup(templateSelect).Title(theme.RenderGroupTitle("Step 6 — Template")),
+
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Use Gradle wrapper (gradlew)?").
+				Description("Builds will be reproducible across machines. Wrapper (9.4.1) included. Choose 'no' to use system gradle.").
+				Value(&useWrapper),
+		).Title(theme.RenderGroupTitle("Step 7 — Gradle wrapper")),
 
 		huh.NewGroup(
 			huh.NewConfirm().
 				Title("Initialize git repository?").
 				Value(&initGit),
-		).Title(renderGroupTitle("Step 7 — Initialize git")),
+		).Title(theme.RenderGroupTitle("Step 8 — Initialize git")),
 
 		huh.NewGroup(
 			huh.NewConfirm().
 				Title("Generate .vscode/ config?").
 				Value(&vscode),
-		).Title(renderGroupTitle("Step 8 — VSCode config")),
+		).Title(theme.RenderGroupTitle("Step 9 — VSCode config")),
 
 		huh.NewGroup(
 			huh.NewNote().
@@ -164,18 +116,19 @@ func (p *AndroidProvider) Prompt() (providers.ProviderConfig, error) {
 				DescriptionFunc(func() string {
 					minSdkInt := mustAtoi(minSdkStr)
 					return fmt.Sprintf(
-						"  App:       %s\n  Package:   %s\n  Language:  %s\n  Min SDK:   %s (%s)\n  Template:  %s\n  Git:       %s\n  VSCode:    %s",
+						"  App:       %s\n  Package:   %s\n  Language:  %s\n  Min SDK:   %s (%s)\n  Template:  %s\n  Wrapper:   %s\n  Git:       %s\n  VSCode:    %s",
 						appName,
 						packageName,
 						lang,
 						minSdkStr, validator.SdkVersionLabel(minSdkInt),
 						template,
+						boolLabel(useWrapper),
 						boolLabel(initGit),
 						boolLabel(vscode),
 					)
 				}, nil),
-		).Title(renderGroupTitle("Step 9 — Confirm")),
-	).WithTheme(th)
+		).Title(theme.RenderGroupTitle("Step 10 — Confirm")),
+	).WithTheme(theme.HuhTheme)
 
 	// Run the interactive form; return any error (e.g. user aborted with Ctrl+C).
 	if err := form.Run(); err != nil {
@@ -195,9 +148,9 @@ func (p *AndroidProvider) Prompt() (providers.ProviderConfig, error) {
 		"MinSdk":      minSdk,
 		"TargetSdk":   35,
 		"Template":    template,
+		"Wrapper":     useWrapper,
 		"Git":         initGit,
 		"Vscode":      vscode,
-		"NoWrapper":   false,
 	}, nil
 }
 
@@ -223,7 +176,7 @@ func mustAtoi(s string) int {
 // initialState returns the initial wizard values populated from the provided
 // Config. Extracted to allow unit testing of prefill behavior without running
 // the interactive form.
-func initialState(cfg config.Config) (appName, packageName, outputDir, lang, minSdkStr, template string, initGit, vscode bool) {
+func initialState(cfg config.Config) (appName, packageName, outputDir, lang, minSdkStr, template string, useWrapper, initGit, vscode bool) {
 	appName = ""
 	if cfg.DefaultPackage == "" {
 		cfg.DefaultPackage = "com.example"
@@ -244,6 +197,7 @@ func initialState(cfg config.Config) (appName, packageName, outputDir, lang, min
 	} else {
 		template = cfg.DefaultTemplate
 	}
+	useWrapper = true // Default to using Gradle wrapper for reproducible builds
 	initGit = cfg.Git
 	vscode = cfg.VSCode
 	return

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/backsofangels/grimoire/internal/logging"
@@ -65,82 +64,7 @@ var addActivityCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("provider not found: %s: %w", providerName, err)
 		}
-
-		// allow --name flag as alternative to positional arg; interactive when both absent
-		nameFlag, _ := cmd.Flags().GetString("name")
-		if len(args) == 0 && nameFlag == "" {
-			// write a quick marker so we can detect whether this Run executed
-			_ = os.WriteFile(".add_run_marker", []byte("run"), 0o644)
-
-			if err := runAddInteractive(cmd, provider, "activity"); err != nil {
-				if isUserAbort(err) {
-					logging.Info("Interrupted by user")
-					return nil
-				}
-				return fmt.Errorf("add failed: %w", err)
-			}
-			return nil
-		}
-
-		var name string
-		if nameFlag != "" {
-			name = nameFlag
-		} else {
-			name = args[0]
-		}
-		pkg, _ := cmd.Flags().GetString("package")
-		module, _ := cmd.Flags().GetString("module")
-		lang, _ := cmd.Flags().GetString("lang")
-		layout, _ := cmd.Flags().GetString("layout")
-		ui, _ := cmd.Flags().GetString("ui")
-		// support --no-ui alias which forces UI to "none"
-		noUI, _ := cmd.Flags().GetBool("no-ui")
-		if noUI {
-			ui = "none"
-		}
-
-		// normalize/validate inputs
-		if strings.ToLower(ui) == "none" && layout != "" {
-			logging.Info("Ignoring --layout because --ui is 'none'")
-			layout = ""
-		}
-		// Only validate explicit --ui values ("none" is set via --no-ui)
-		if strings.ToLower(ui) != "none" {
-			if err := validateUI(ui); err != nil {
-			return fmt.Errorf("invalid --ui: %w", err)
-			}
-		}
-		if err := validateLang(lang); err != nil {
-			return fmt.Errorf("invalid --lang: %w", err)
-		}
-		override, _ := cmd.Flags().GetBool("override")
-
-		di, _ := cmd.Flags().GetString("di")
-		if err := validateDI(di); err != nil {
-			return fmt.Errorf("invalid --di: %w", err)
-		}
-		includeVM, _ := cmd.Flags().GetBool("viewmodel")
-		addNav, _ := cmd.Flags().GetBool("nav")
-
-		cfg := providers.ProviderConfig{
-			"Kind":        "activity",
-			"Name":        name,
-			"PackageName": pkg,
-			"Module":      module,
-			"Lang":        lang,
-			"Layout":      layout,
-			"UI":          ui,
-			"Override":    override,
-			"DI":          di,
-			"ViewModel":   includeVM,
-			"Nav":         addNav,
-		}
-
-		if err := provider.Add(cfg); err != nil {
-			return fmt.Errorf("add failed: %w", err)
-		}
-		logging.Success(fmt.Sprintf("Added activity %s", name))
-		return nil
+		return runAddResourceCommand(cmd, provider, "activity", args)
 	},
 }
 
@@ -155,79 +79,7 @@ var addFragmentCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("provider not found: %s: %w", providerName, err)
 		}
-
-		// allow --name flag as alternative to positional arg; interactive when both absent
-		nameFlag, _ := cmd.Flags().GetString("name")
-		if len(args) == 0 && nameFlag == "" {
-			if err := runAddInteractive(cmd, provider, "fragment"); err != nil {
-				if isUserAbort(err) {
-					logging.Info("Interrupted by user")
-					return nil
-				}
-				return fmt.Errorf("add failed: %w", err)
-			}
-			return nil
-		}
-
-		var name string
-		if nameFlag != "" {
-			name = nameFlag
-		} else {
-			name = args[0]
-		}
-		pkg, _ := cmd.Flags().GetString("package")
-		module, _ := cmd.Flags().GetString("module")
-		lang, _ := cmd.Flags().GetString("lang")
-		layout, _ := cmd.Flags().GetString("layout")
-		ui, _ := cmd.Flags().GetString("ui")
-		// support --no-ui alias which forces UI to "none"
-		noUI, _ := cmd.Flags().GetBool("no-ui")
-		if noUI {
-			ui = "none"
-		}
-
-		// normalize/validate inputs
-		if strings.ToLower(ui) == "none" && layout != "" {
-			logging.Info("Ignoring --layout because --ui is 'none'")
-			layout = ""
-		}
-		// Only validate explicit --ui values ("none" is set via --no-ui)
-		if strings.ToLower(ui) != "none" {
-			if err := validateUI(ui); err != nil {
-			return fmt.Errorf("invalid --ui: %w", err)
-		}
-		}
-		if err := validateLang(lang); err != nil {
-			return fmt.Errorf("invalid --lang: %w", err)
-		}
-		override, _ := cmd.Flags().GetBool("override")
-
-		di, _ := cmd.Flags().GetString("di")
-		if err := validateDI(di); err != nil {
-			return fmt.Errorf("invalid --di: %w", err)
-		}
-		includeVM, _ := cmd.Flags().GetBool("viewmodel")
-		addNav, _ := cmd.Flags().GetBool("nav")
-
-		cfg := providers.ProviderConfig{
-			"Kind":        "fragment",
-			"Name":        name,
-			"PackageName": pkg,
-			"Module":      module,
-			"Lang":        lang,
-			"Layout":      layout,
-			"UI":          ui,
-			"Override":    override,
-			"DI":          di,
-			"ViewModel":   includeVM,
-			"Nav":         addNav,
-		}
-
-		if err := provider.Add(cfg); err != nil {
-			return fmt.Errorf("add failed: %w", err)
-		}
-		logging.Success(fmt.Sprintf("Added fragment %s", name))
-		return nil
+		return runAddResourceCommand(cmd, provider, "fragment", args)
 	},
 }
 
@@ -242,63 +94,7 @@ var addViewModelCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("provider not found: %s: %w", providerName, err)
 		}
-
-		// allow --name flag as alternative to positional arg; interactive when both absent
-		nameFlag, _ := cmd.Flags().GetString("name")
-		if len(args) == 0 && nameFlag == "" {
-			if err := runAddInteractive(cmd, provider, "viewmodel"); err != nil {
-				if isUserAbort(err) {
-					logging.Info("Interrupted by user")
-					return nil
-				}
-				return fmt.Errorf("add failed: %w", err)
-			}
-			return nil
-		}
-
-		var name string
-		if nameFlag != "" {
-			name = nameFlag
-		} else {
-			name = args[0]
-		}
-		pkg, _ := cmd.Flags().GetString("package")
-		module, _ := cmd.Flags().GetString("module")
-		lang, _ := cmd.Flags().GetString("lang")
-		ui, _ := cmd.Flags().GetString("ui")
-		// support --no-ui alias which forces UI to "none"
-		noUI, _ := cmd.Flags().GetBool("no-ui")
-		if noUI {
-			ui = "none"
-		}
-		override, _ := cmd.Flags().GetBool("override")
-
-		// validate inputs for viewmodel command
-		// Only validate explicit --ui values ("none" is set via --no-ui)
-		if strings.ToLower(ui) != "none" {
-			if err := validateUI(ui); err != nil {
-			return fmt.Errorf("invalid --ui: %w", err)
-		}
-		}
-		if err := validateLang(lang); err != nil {
-			return fmt.Errorf("invalid --lang: %w", err)
-		}
-
-		cfg := providers.ProviderConfig{
-			"Kind":        "viewmodel",
-			"Name":        name,
-			"PackageName": pkg,
-			"Module":      module,
-			"Lang":        lang,
-			"UI":          ui,
-			"Override":    override,
-		}
-
-		if err := provider.Add(cfg); err != nil {
-			return fmt.Errorf("add failed: %w", err)
-		}
-		logging.Success(fmt.Sprintf("Added viewmodel %s", name))
-		return nil
+		return runAddResourceCommand(cmd, provider, "viewmodel", args)
 	},
 }
 
@@ -322,48 +118,6 @@ func init() {
 	addCmd.PersistentFlags().StringP("ui", "", "xml", "UI type (xml|compose). Use --no-ui to disable UI generation")
 	addCmd.PersistentFlags().Bool("no-ui", false, "Shortcut for --ui none (equivalent to --ui none)")
 	addCmd.PersistentFlags().BoolP("override", "", false, "Overwrite existing files")
-}
-
-// validateUI ensures the provided UI type is one of the allowed values.
-func validateUI(ui string) error {
-	s := strings.ToLower(strings.TrimSpace(ui))
-	if s == "" {
-		return nil
-	}
-	switch s {
-	case "xml", "compose":
-		return nil
-	default:
-		return fmt.Errorf("invalid UI type: %s (allowed: xml|compose)", ui)
-	}
-}
-
-// validateLang ensures language is kotlin or java.
-func validateLang(lang string) error {
-	s := strings.ToLower(strings.TrimSpace(lang))
-	if s == "" {
-		return nil
-	}
-	switch s {
-	case "kotlin", "java":
-		return nil
-	default:
-		return fmt.Errorf("invalid language: %s (allowed: kotlin|java)", lang)
-	}
-}
-
-// validateDI ensures DI selection is valid.
-func validateDI(di string) error {
-	s := strings.ToLower(strings.TrimSpace(di))
-	if s == "" {
-		return nil
-	}
-	switch s {
-	case "none", "hilt", "koin":
-		return nil
-	default:
-		return fmt.Errorf("invalid DI option: %s (allowed: none|hilt|koin)", di)
-	}
 }
 
 // isUserAbort attempts to heuristically detect errors caused by user

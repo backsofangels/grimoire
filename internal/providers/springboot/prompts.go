@@ -2,15 +2,12 @@ package springboot
 
 import (
 	"fmt"
-	"os"
-	"strings"
-	"unicode/utf8"
 
 	"github.com/backsofangels/grimoire/internal/config"
 	"github.com/backsofangels/grimoire/internal/providers"
+	"github.com/backsofangels/grimoire/internal/tui"
 	"github.com/backsofangels/grimoire/internal/validator"
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // RunPrompt displays a simple interactive wizard for Java/Spring projects.
@@ -19,32 +16,9 @@ func RunPrompt() (providers.ProviderConfig, error) {
 
 	appName, group, artifact, packageName, outputDir, template, buildSystem, initGit := initialState(cfg)
 
-	// Minimal theme
-	th := huh.ThemeBase()
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255"))
-	sepStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("135"))
-	renderGroupTitle := func(s string) string {
-		rendered := titleStyle.Render(s)
-		width := utf8.RuneCountInString(s)
-		if width < 6 {
-			width = 6
-		}
-		if width > 36 {
-			width = 36
-		}
-		sep := strings.Repeat("─", width)
-		return rendered + "\n" + sepStyle.Render(sep)
-	}
-
-	// Header (skip if top-level wizard already printed it)
-	if os.Getenv("GRIMOIRE_HEADER_PRINTED") == "" {
-		headerBanner := "🔮 grimoire — new project"
-		headerStyle := lipgloss.NewStyle().Border(lipgloss.ThickBorder()).BorderLeft(true).BorderLeftForeground(lipgloss.Color("135")).PaddingLeft(1).Bold(true).Foreground(lipgloss.Color("255"))
-		subtitleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		fmt.Println(headerStyle.Render(headerBanner))
-		fmt.Println(subtitleStyle.Render("Use arrow keys · Enter to confirm · Ctrl+C to cancel"))
-		fmt.Println()
-	}
+	// Create theme
+	theme := tui.NewTheme()
+	theme.PrintHeader()
 
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -53,28 +27,28 @@ func RunPrompt() (providers.ProviderConfig, error) {
 				Description("PascalCase recommended (e.g. MyApp)").
 				Value(&appName).
 				Validate(func(s string) error { return validator.ValidateAppName(s) }),
-		).Title(renderGroupTitle("Step 2 — App name")),
+		).Title(theme.RenderGroupTitle("Step 1 — App name")),
 
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Group ID").
 				Description("Reverse domain (e.g. com.example)").
 				Value(&group),
-		).Title(renderGroupTitle("Step 3 — Group ID")),
+		).Title(theme.RenderGroupTitle("Step 2 — Group ID")),
 
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Artifact ID").
 				Description("Module/artifact name (e.g. myapp)").
 				Value(&artifact),
-		).Title(renderGroupTitle("Step 4 — Artifact ID")),
+		).Title(theme.RenderGroupTitle("Step 3 — Artifact ID")),
 
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Package name").
 				Description("Leave empty to use <group>.<artifact>").
 				Value(&packageName),
-		).Title(renderGroupTitle("Step 5 — Package name")),
+		).Title(theme.RenderGroupTitle("Step 4 — Package name")),
 
 		huh.NewGroup(
 			huh.NewSelect[string]().
@@ -85,7 +59,7 @@ func RunPrompt() (providers.ProviderConfig, error) {
 				).
 				Value(&template).
 				Height(0),
-		).Title(renderGroupTitle("Step 6 — Framework")),
+		).Title(theme.RenderGroupTitle("Step 5 — Framework")),
 
 		huh.NewGroup(
 			huh.NewSelect[string]().
@@ -96,20 +70,20 @@ func RunPrompt() (providers.ProviderConfig, error) {
 				).
 				Value(&buildSystem).
 				Height(0),
-		).Title(renderGroupTitle("Step 7 — Build system")),
+		).Title(theme.RenderGroupTitle("Step 6 — Build system")),
 
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Output directory").
 				Description("Leave empty to use ./<artifact>").
 				Value(&outputDir),
-		).Title(renderGroupTitle("Step 7 — Output directory")),
+		).Title(theme.RenderGroupTitle("Step 7 — Output directory")),
 
 		huh.NewGroup(
 			huh.NewConfirm().
 				Title("Initialize git repository?").
 				Value(&initGit),
-		).Title(renderGroupTitle("Step 8 — Initialize git")),
+		).Title(theme.RenderGroupTitle("Step 8 — Initialize git")),
 
 		huh.NewGroup(
 			huh.NewNote().
@@ -119,11 +93,11 @@ func RunPrompt() (providers.ProviderConfig, error) {
 					if pkg == "" {
 						pkg = fmt.Sprintf("%s.%s", group, artifact)
 					}
-					return fmt.Sprintf("  App:      %s\n  Group:    %s\n  Artifact: %s\n  Package:  %s\n  Template: %s\n  Git:      %s",
-						appName, group, artifact, pkg, template, boolLabel(initGit))
+					return fmt.Sprintf("  App:      %s\n  Group:    %s\n  Artifact: %s\n  Package:  %s\n  Template: %s\n  Build:    %s\n  Git:      %s",
+						appName, group, artifact, pkg, template, buildSystem, boolLabel(initGit))
 				}, nil),
-		).Title(renderGroupTitle("Step 10 — Confirm")),
-	).WithTheme(th)
+		).Title(theme.RenderGroupTitle("Step 9 — Confirm")),
+	).WithTheme(theme.HuhTheme)
 
 	if err := form.Run(); err != nil {
 		return nil, err

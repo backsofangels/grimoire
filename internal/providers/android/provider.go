@@ -2,8 +2,8 @@ package android
 
 import (
 	"fmt"
-	"strings"
 	"github.com/backsofangels/grimoire/internal/providers"
+	"strings"
 )
 
 type AndroidProvider struct{}

@@ -28,8 +28,8 @@ android {
         compose true
     }
     composeOptions {
-        // Choose a compatible Compose compiler version for the Kotlin plugin used above
-        kotlinCompilerExtensionVersion = "1.5.3"
+        // Compose Compiler 1.5.10 is compatible with Kotlin 1.9.22
+        kotlinCompilerExtensionVersion = "1.5.10"
     }
     {{- end }}
 
@@ -48,7 +48,7 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     {{- if eq .Lang "kotlin" }}
     // Kotlin standard library
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.23"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.22"
     {{- end }}
     {{- if and (eq .Lang "kotlin") (eq .Template "compose") }}
     // Jetpack Compose dependencies

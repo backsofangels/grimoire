@@ -1,56 +1,35 @@
 package android
 
 import (
-	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
-	"text/template"
 
+	"github.com/backsofangels/grimoire/internal/common"
 	"github.com/backsofangels/grimoire/internal/providers"
 	"github.com/backsofangels/grimoire/internal/validator"
 )
 
 func renderTemplate(name string, data any) (string, error) {
 	path := filepath.ToSlash(filepath.Join("templates", name))
-	b, err := templateFS.ReadFile(path)
+	content, err := fs.ReadFile(templateFS, path)
 	if err != nil {
 		return "", fmt.Errorf("read template %s: %w", name, err)
 	}
-	tmpl, err := template.New(name).Parse(string(b))
-	if err != nil {
-		return "", fmt.Errorf("parse template %s: %w", name, err)
-	}
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("execute template %s: %w", name, err)
-	}
-	return buf.String(), nil
+	return common.RenderTemplate(name, string(content), data)
 }
 
 func writeFile(path string, content string) error {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", dir, err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		return fmt.Errorf("write file %s: %w", path, err)
-	}
-	return nil
+	return common.WriteFile(path, content)
 }
 
 func initGit(dir string) error {
-	cmd := exec.Command("git", "init")
-	cmd.Dir = dir
-	if err := cmd.Run(); err != nil {
-		// Non-fatal
-		return fmt.Errorf("git init failed: %w", err)
-	}
-	return nil
+	// Non-fatal if git init fails
+	return common.InitGit(dir)
 }
 
 // checkJavaAvailable runs `java -version` to ensure Java is installed and on PATH.
@@ -162,166 +141,92 @@ You can skip wrapper generation by passing '--wrapper=false' but builds will the
 	return fmt.Errorf(guide)
 }
 
-// GenerateProject creates a new Android project based on cfg.
-func GenerateProject(cfg providers.ProviderConfig) error {
-	// Extract values from cfg (support both test-style CamelCase and flag-style names)
-	appName, _ := cfg["AppName"].(string)
-	if appName == "" {
-		if s, _ := cfg["app-name"].(string); s != "" {
-			appName = s
-		}
+// generateProjectConfig holds the extracted and validated configuration for GenerateProject.
+type generateProjectConfig struct {
+	appName      string
+	packageName  string
+	lang         string
+	templateKind string
+	minSdk       int
+	targetSdk    int
+	outputDir    string
+	gitInit      bool
+	vscodeCfg    bool
+	skipWrapper  bool
+}
+
+// extractGenerateConfig extracts and validates configuration from the ProviderConfig.
+func extractGenerateConfig(cfg providers.ProviderConfig) (*generateProjectConfig, error) {
+	gc := &generateProjectConfig{}
+
+	// AppName (required)
+	gc.appName = common.GetStringDefault(cfg, "", "AppName", "app-name")
+	if gc.appName == "" {
+		return nil, fmt.Errorf("AppName is required in config")
 	}
-	if appName == "" {
-		return fmt.Errorf("AppName is required in config")
+
+	// PackageName (required)
+	gc.packageName = common.GetStringDefault(cfg, "", "PackageName", "package")
+	if gc.packageName == "" {
+		return nil, fmt.Errorf("PackageName is required in config")
 	}
-	packageName, _ := cfg["PackageName"].(string)
-	if packageName == "" {
-		if s, _ := cfg["package"].(string); s != "" {
-			packageName = s
-		}
+
+	// Lang (default: kotlin)
+	gc.lang = common.GetStringDefault(cfg, "kotlin", "Lang", "lang")
+
+	// Template (default: basic)
+	gc.templateKind = common.GetStringDefault(cfg, "basic", "Template", "template")
+
+	// MinSdk (default: 26)
+	gc.minSdk = common.GetIntDefault(cfg, 26, "MinSdk", "min-sdk")
+
+	// TargetSdk (default: 35)
+	gc.targetSdk = common.GetIntDefault(cfg, 35, "TargetSdk", "target-sdk")
+
+	// OutputDir (default: ./<appName>)
+	gc.outputDir = common.GetStringDefault(cfg, filepath.Join(".", gc.appName), "OutputDir", "output-dir")
+
+	// GitInit (default: false)
+	gc.gitInit = common.GetBoolDefault(cfg, false, "Git", "git")
+
+	// VscodeCfg (default: false)
+	gc.vscodeCfg = common.GetBoolDefault(cfg, false, "Vscode", "vscode")
+
+	// SkipWrapper: detect skip-wrapper flag — prefer explicit new `wrapper` flag (default true)
+	gc.skipWrapper = !common.GetBoolDefault(cfg, true, "Wrapper", "wrapper", "NoWrapper", "no-wrapper")
+
+	// If wrapper is explicitly "NoWrapper" or "no-wrapper", override
+	if common.GetBoolDefault(cfg, false, "NoWrapper", "no-wrapper") {
+		gc.skipWrapper = true
 	}
-	if packageName == "" {
-		return fmt.Errorf("PackageName is required in config")
+
+	return gc, nil
+}
+
+// writeRootLevelFiles writes build.gradle, settings.gradle, gradle.properties, and .gitignore.
+func writeRootLevelFiles(outputDir string, data map[string]any) error {
+	files := []struct {
+		template string
+		path     string
+	}{
+		{"build_gradle_root.tmpl", "build.gradle"},
+		{"settings_gradle.tmpl", "settings.gradle"},
+		{"gradle_properties.tmpl", "gradle.properties"},
+		{"gitignore.tmpl", ".gitignore"},
 	}
-	lang, _ := cfg["Lang"].(string)
-	if lang == "" {
-		if s, _ := cfg["lang"].(string); s != "" {
-			lang = s
-		} else {
-			lang = "kotlin"
-		}
-	}
-	templateKind, _ := cfg["Template"].(string)
-	if templateKind == "" {
-		if s, _ := cfg["template"].(string); s != "" {
-			templateKind = s
-		} else {
-			templateKind = "basic"
-		}
-	}
-	minSdk, _ := cfg["MinSdk"].(int)
-	if minSdk == 0 {
-		if v, ok := cfg["min-sdk"].(int); ok {
-			minSdk = v
-		}
-		if v2, ok := cfg["min-sdk"].(string); ok {
-			if n, err := strconv.Atoi(v2); err == nil {
-				minSdk = n
+
+	for _, f := range files {
+		if s, err := renderTemplate(f.template, data); err == nil {
+			if err := writeFile(filepath.Join(outputDir, f.path), s); err != nil {
+				return err
 			}
 		}
-		if minSdk == 0 {
-			minSdk = 26
-		}
 	}
-	targetSdk, _ := cfg["TargetSdk"].(int)
-	if targetSdk == 0 {
-		if v, ok := cfg["target-sdk"].(int); ok {
-			targetSdk = v
-		}
-		if v2, ok := cfg["target-sdk"].(string); ok {
-			if n, err := strconv.Atoi(v2); err == nil {
-				targetSdk = n
-			}
-		}
-		if targetSdk == 0 {
-			targetSdk = 35
-		}
-	}
-	outputDir, _ := cfg["OutputDir"].(string)
-	if outputDir == "" {
-		if s, _ := cfg["output-dir"].(string); s != "" {
-			outputDir = s
-		}
-		if outputDir == "" {
-			outputDir = filepath.Join(".", appName)
-		}
-	}
-	gitInit, _ := cfg["Git"].(bool)
-	if !gitInit {
-		if v, ok := cfg["git"].(bool); ok {
-			gitInit = v
-		}
-	}
-	vscodeCfg, _ := cfg["Vscode"].(bool)
-	if !vscodeCfg {
-		if v, ok := cfg["vscode"].(bool); ok {
-			vscodeCfg = v
-		}
-	}
+	return nil
+}
 
-	// detect skip-wrapper flag — prefer explicit new `wrapper` flag (default true)
-	skipWrapper := false
-	if v, ok := cfg["Wrapper"].(bool); ok {
-		if !v {
-			skipWrapper = true
-		}
-	} else if v2, ok2 := cfg["wrapper"].(bool); ok2 {
-		if !v2 {
-			skipWrapper = true
-		}
-	} else if v3, ok3 := cfg["NoWrapper"].(bool); ok3 && v3 {
-		// backward compatibility
-		skipWrapper = true
-	} else if v4, ok4 := cfg["no-wrapper"].(bool); ok4 && v4 {
-		skipWrapper = true
-	}
-
-	// If user requested a Java project, or we will generate the Gradle wrapper,
-	// ensure Java is available early to provide a clear error message.
-	if strings.ToLower(lang) == "java" || !skipWrapper {
-		if err := checkJavaAvailable(); err != nil {
-			return err
-		}
-	}
-
-	// Validation
-	if err := validator.ValidateAppName(appName); err != nil {
-		return err
-	}
-	if err := validator.ValidatePackageName(packageName); err != nil {
-		return err
-	}
-
-	// Ensure output directory does not exist
-	if _, err := os.Stat(outputDir); err == nil {
-		return fmt.Errorf("output directory already exists: %s", outputDir)
-	}
-
-	// Create basic files
-	data := map[string]any{
-		"AppName":      appName,
-		"AppNameLower": strings.ToLower(appName),
-		"PackageName":  packageName,
-		"PackagePath":  validator.PackageToPath(packageName),
-		"MinSdk":       minSdk,
-		"TargetSdk":    targetSdk,
-		"Lang":         lang,
-		"Template":     templateKind,
-	}
-
-	// write root-level templates
-	if s, err := renderTemplate("build_gradle_root.tmpl", data); err == nil {
-		if err := writeFile(filepath.Join(outputDir, "build.gradle"), s); err != nil {
-			return err
-		}
-	}
-	if s, err := renderTemplate("settings_gradle.tmpl", data); err == nil {
-		if err := writeFile(filepath.Join(outputDir, "settings.gradle"), s); err != nil {
-			return err
-		}
-	}
-	if s, err := renderTemplate("gradle_properties.tmpl", data); err == nil {
-		if err := writeFile(filepath.Join(outputDir, "gradle.properties"), s); err != nil {
-			return err
-		}
-	}
-	if s, err := renderTemplate("gitignore.tmpl", data); err == nil {
-		if err := writeFile(filepath.Join(outputDir, ".gitignore"), s); err != nil {
-			return err
-		}
-	}
-
-	// app module
+// writeAppModuleFiles writes app/build.gradle and AndroidManifest.xml.
+func writeAppModuleFiles(outputDir string, data map[string]any) error {
 	appBuild, err := renderTemplate("build_gradle_app.tmpl", data)
 	if err != nil {
 		return err
@@ -330,7 +235,6 @@ func GenerateProject(cfg providers.ProviderConfig) error {
 		return err
 	}
 
-	// AndroidManifest
 	manifest, err := renderTemplate("AndroidManifest.xml.tmpl", data)
 	if err != nil {
 		return err
@@ -339,8 +243,11 @@ func GenerateProject(cfg providers.ProviderConfig) error {
 		return err
 	}
 
-	// source directory and main activity
-	pkgPath := validator.PackageToPath(packageName)
+	return nil
+}
+
+// writeMainActivityAndLayout writes the main activity and layout file based on language and template.
+func writeMainActivityAndLayout(outputDir string, pkgPath, lang, templateKind string, data map[string]any) error {
 	if lang == "kotlin" {
 		switch templateKind {
 		case "basic":
@@ -353,7 +260,6 @@ func GenerateProject(cfg providers.ProviderConfig) error {
 				return err
 			}
 		case "compose":
-			// Compose activity: generate a Compose-based MainActivity
 			src, _ := renderTemplate("MainActivity_compose.kt.tmpl", data)
 			if err := writeFile(filepath.Join(outputDir, "app", "src", "main", "java", pkgPath, "MainActivity.kt"), src); err != nil {
 				return err
@@ -381,43 +287,122 @@ func GenerateProject(cfg providers.ProviderConfig) error {
 			}
 		}
 	}
+	return nil
+}
 
-	// values
-	if s, err := renderTemplate("strings.xml.tmpl", data); err == nil {
-		if err := writeFile(filepath.Join(outputDir, "app", "src", "main", "res", "values", "strings.xml"), s); err != nil {
-			return err
-		}
-	}
-	if s, err := renderTemplate("themes.xml.tmpl", data); err == nil {
-		if err := writeFile(filepath.Join(outputDir, "app", "src", "main", "res", "values", "themes.xml"), s); err != nil {
-			return err
-		}
+// writeResourceFiles writes strings.xml and themes.xml.
+func writeResourceFiles(outputDir string, data map[string]any) error {
+	files := []struct {
+		template string
+		path     string
+	}{
+		{"strings.xml.tmpl", filepath.Join("app", "src", "main", "res", "values", "strings.xml")},
+		{"themes.xml.tmpl", filepath.Join("app", "src", "main", "res", "values", "themes.xml")},
 	}
 
-	// vscode
-	if vscodeCfg {
-		if s, err := renderTemplate("vscode_settings.json.tmpl", data); err == nil {
-			if err := writeFile(filepath.Join(outputDir, ".vscode", "settings.json"), s); err != nil {
-				return err
-			}
-		}
-		if s, err := renderTemplate("vscode_extensions.json.tmpl", data); err == nil {
-			if err := writeFile(filepath.Join(outputDir, ".vscode", "extensions.json"), s); err != nil {
+	for _, f := range files {
+		if s, err := renderTemplate(f.template, data); err == nil {
+			if err := writeFile(filepath.Join(outputDir, f.path), s); err != nil {
 				return err
 			}
 		}
 	}
+	return nil
+}
 
-	// Gradle wrapper: generate or download unless skipped
-	if !skipWrapper {
-		if err := ensureGradleWrapper(outputDir, "8.9"); err != nil {
-			// non-fatal for generation; surface error
+// writeVsCodeFiles writes VSCode settings and extensions files.
+func writeVsCodeFiles(outputDir string, data map[string]any) error {
+	files := []struct {
+		template string
+		path     string
+	}{
+		{"vscode_settings.json.tmpl", filepath.Join(".vscode", "settings.json")},
+		{"vscode_extensions.json.tmpl", filepath.Join(".vscode", "extensions.json")},
+	}
+
+	for _, f := range files {
+		if s, err := renderTemplate(f.template, data); err == nil {
+			if err := writeFile(filepath.Join(outputDir, f.path), s); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// GenerateProject creates a new Android project based on cfg.
+func GenerateProject(cfg providers.ProviderConfig) error {
+	// Extract and validate configuration
+	gc, err := extractGenerateConfig(cfg)
+	if err != nil {
+		return err
+	}
+
+	// If user requested a Java project, or we will generate the Gradle wrapper,
+	// ensure Java is available early to provide a clear error message.
+	if strings.ToLower(gc.lang) == "java" || !gc.skipWrapper {
+		if err := checkJavaAvailable(); err != nil {
+			return err
+		}
+	}
+
+	// Validation
+	if err := validator.ValidateAppName(gc.appName); err != nil {
+		return err
+	}
+	if err := validator.ValidatePackageName(gc.packageName); err != nil {
+		return err
+	}
+
+	// Ensure output directory does not exist
+	if _, err := os.Stat(gc.outputDir); err == nil {
+		return fmt.Errorf("output directory already exists: %s", gc.outputDir)
+	}
+
+	// Prepare data for template rendering
+	data := map[string]any{
+		"AppName":      gc.appName,
+		"AppNameLower": strings.ToLower(gc.appName),
+		"PackageName":  gc.packageName,
+		"PackagePath":  validator.PackageToPath(gc.packageName),
+		"MinSdk":       gc.minSdk,
+		"TargetSdk":    gc.targetSdk,
+		"Lang":         gc.lang,
+		"Template":     gc.templateKind,
+	}
+
+	// Write all file groups
+	if err := writeRootLevelFiles(gc.outputDir, data); err != nil {
+		return err
+	}
+	if err := writeAppModuleFiles(gc.outputDir, data); err != nil {
+		return err
+	}
+
+	pkgPath := validator.PackageToPath(gc.packageName)
+	if err := writeMainActivityAndLayout(gc.outputDir, pkgPath, gc.lang, gc.templateKind, data); err != nil {
+		return err
+	}
+	if err := writeResourceFiles(gc.outputDir, data); err != nil {
+		return err
+	}
+
+	if gc.vscodeCfg {
+		if err := writeVsCodeFiles(gc.outputDir, data); err != nil {
+			return err
+		}
+	}
+
+	// Generate Gradle wrapper unless skipped
+	if !gc.skipWrapper {
+		if err := ensureGradleWrapper(gc.outputDir, "8.9"); err != nil {
 			return fmt.Errorf("gradle wrapper setup failed: %w", err)
 		}
 	}
 
-	if gitInit {
-		if err := initGit(outputDir); err != nil {
+	// Initialize git repository if requested
+	if gc.gitInit {
+		if err := initGit(gc.outputDir); err != nil {
 			// non-fatal, warn
 		}
 	}

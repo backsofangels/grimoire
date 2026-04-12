@@ -1,54 +1,34 @@
 package springboot
 
 import (
-	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"text/template"
 
+	"github.com/backsofangels/grimoire/internal/common"
 	"github.com/backsofangels/grimoire/internal/providers"
 	"github.com/backsofangels/grimoire/internal/validator"
 )
 
 func renderTemplate(name string, data any) (string, error) {
 	path := filepath.ToSlash(filepath.Join("templates", name))
-	b, err := templateFS.ReadFile(path)
+	content, err := fs.ReadFile(templateFS, path)
 	if err != nil {
 		return "", fmt.Errorf("read template %s: %w", name, err)
 	}
-	tmpl, err := template.New(name).Parse(string(b))
-	if err != nil {
-		return "", fmt.Errorf("parse template %s: %w", name, err)
-	}
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("execute template %s: %w", name, err)
-	}
-	return buf.String(), nil
+	return common.RenderTemplate(name, string(content), data)
 }
 
 func writeFile(path string, content string) error {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", dir, err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		return fmt.Errorf("write file %s: %w", path, err)
-	}
-	return nil
+	return common.WriteFile(path, content)
 }
 
 func initGit(dir string) error {
-	cmd := exec.Command("git", "init")
-	cmd.Dir = dir
-	if err := cmd.Run(); err != nil {
-		// Non-fatal
-		return fmt.Errorf("git init failed: %w", err)
-	}
-	return nil
+	// Non-fatal if git init fails
+	return common.InitGit(dir)
 }
 
 // resolveGroupArtifact applies derivation rules for group/artifact/package.

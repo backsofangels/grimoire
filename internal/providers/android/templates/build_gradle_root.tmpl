@@ -5,9 +5,10 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath "com.android.tools.build:gradle:8.3.0"
+        // AGP 8.4.0+ supports compileSdk 35 without warnings
+        classpath "com.android.tools.build:gradle:8.4.0"
         // Kotlin Gradle plugin for Kotlin Android support
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.23"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22"
     }
 }
 
