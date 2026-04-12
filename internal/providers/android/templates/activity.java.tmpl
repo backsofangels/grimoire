@@ -7,6 +7,10 @@ public class {{.ClassName}} extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        {{if .NoLayout}}
+        // No UI assigned for this Activity (UI Type = None)
+        {{else}}
         setContentView(R.layout.{{.LayoutName}});
+        {{end}}
     }
 }

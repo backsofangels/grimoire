@@ -158,6 +158,16 @@ Do not add dependencies without a strong justification. Prefer stdlib where poss
 - **Tests**: every `generator.go` and `validator.go` must have a corresponding `_test.go`
 - **Exported symbols**: only export what is used outside the package
 
+### CLI Input Validation
+
+- **Validate at the `cmd/` layer:** All user-provided CLI flag values must be validated in the `cmd/` layer before constructing a `ProviderConfig` and invoking provider methods. This prevents invalid inputs from reaching generation logic and provides fast, clear feedback to users.
+- **Common validations:**
+    - `--ui` / `--no-ui`: allowed values `xml | compose | none`. `--no-ui` is equivalent to `--ui none`.
+    - `--lang`: allowed values `kotlin | java`.
+    - `--di`: allowed values `none | hilt | koin`.
+- **Interactive TUI:** prefill values from flags/config, but still enforce the same validations. If a flag is invalid, the CLI should display a user-friendly error instead of running generation.
+- **Implementation note:** Add small helper functions in `cmd/` (for example `validateUI`, `validateLang`, `validateDI`) and call them from both the non-interactive subcommands and the interactive `runAddInteractive` flow.
+
 ### Output formatting conventions
 
 Use consistent prefixes for terminal output:

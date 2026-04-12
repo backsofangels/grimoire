@@ -6,6 +6,10 @@ import androidx.appcompat.app.AppCompatActivity
 class {{.ClassName}} : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        {{if .NoLayout}}
+        // No UI assigned for this Activity (UI Type = None)
+        {{else}}
         setContentView(R.layout.{{.LayoutName}})
+        {{end}}
     }
 }

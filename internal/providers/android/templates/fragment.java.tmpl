@@ -9,6 +9,10 @@ import androidx.fragment.app.Fragment;
 public class {{.ClassName}} extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        {{if .NoLayout}}
+        return null;
+        {{else}}
         return inflater.inflate(R.layout.{{.LayoutName}}, container, false);
+        {{end}}
     }
 }

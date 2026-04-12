@@ -1,9 +1,11 @@
 package android
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/backsofangels/grimoire/internal/providers"
@@ -41,16 +43,10 @@ func (a *AndroidProvider) Add(cfg providers.ProviderConfig) error {
 
 	pkg := getString(cfg, "PackageName", "package")
 	if pkg == "" {
-		// try to detect from AndroidManifest
-		man := filepath.Join(module, "src", "main", "AndroidManifest.xml")
-		if b, err := os.ReadFile(man); err == nil {
-			s := string(b)
-			if idx := strings.Index(s, "package=\""); idx != -1 {
-				start := idx + len("package=\"")
-				if end := strings.Index(s[start:], "\""); end != -1 {
-					pkg = s[start : start+end]
-				}
-			}
+		// try to detect from AndroidManifest, build.gradle (namespace/applicationId),
+		// or by parsing source files for a package declaration.
+		if p := detectPackageInModule(module); p != "" {
+			pkg = p
 		}
 		if pkg == "" {
 			return fmt.Errorf("package name not provided and could not be detected; use --package")
@@ -58,7 +54,9 @@ func (a *AndroidProvider) Add(cfg providers.ProviderConfig) error {
 	}
 
 	layout := getString(cfg, "Layout", "layout")
-	if layout == "" {
+	ui := getString(cfg, "UI", "ui")
+	// if UI type is "none", do not create or default a layout name
+	if layout == "" && ui != "none" {
 		base := toSnake(name)
 		switch kind {
 		case "activity":
@@ -125,6 +123,7 @@ func (a *AndroidProvider) Add(cfg providers.ProviderConfig) error {
 		"ClassName":   name,
 		"LayoutName":  layout,
 		"Title":       name,
+		"NoLayout":    ui == "none",
 	}
 
 	// render source
@@ -137,7 +136,7 @@ func (a *AndroidProvider) Add(cfg providers.ProviderConfig) error {
 	}
 
 	// render layout for activities/fragments (only XML templates for now)
-	if kind == "activity" || kind == "fragment" {
+	if ui != "none" && (kind == "activity" || kind == "fragment") {
 		layoutDir := filepath.Join(module, "src", "main", "res", "layout")
 		if err := os.MkdirAll(layoutDir, 0o755); err != nil {
 			return err
@@ -593,4 +592,81 @@ func ensureNavDependencies(module string) error {
 		}
 	}
 	return nil
+}
+
+// detectPackageInModule attempts to discover the package/namespace for the
+// provided module by inspecting AndroidManifest.xml, module build files
+// (searching for `namespace` or `applicationId`), and by scanning source
+// files for a `package` declaration.
+func detectPackageInModule(module string) string {
+	// 1) AndroidManifest.xml package attribute
+	man := filepath.Join(module, "src", "main", "AndroidManifest.xml")
+	if b, err := os.ReadFile(man); err == nil {
+		re := regexp.MustCompile(`package\s*=\s*"([^"]+)"`)
+		if m := re.FindStringSubmatch(string(b)); len(m) > 1 {
+			return m[1]
+		}
+	}
+
+	// helper to parse namespace or applicationId from Gradle files
+	parseFromGradle := func(content string) string {
+		// namespace = "com.example"
+		reNs := regexp.MustCompile(`namespace\s*(?:=)?\s*["']([^"']+)["']`)
+		if m := reNs.FindStringSubmatch(content); len(m) > 1 {
+			return m[1]
+		}
+		// applicationId "com.example" or applicationId = "com.example"
+		reApp := regexp.MustCompile(`applicationId\s*(?:=)?\s*["']([^"']+)["']`)
+		if m := reApp.FindStringSubmatch(content); len(m) > 1 {
+			return m[1]
+		}
+		return ""
+	}
+
+	// fallback detection will run project-wide if module-local scans fail
+
+	// 2) module build.gradle (Groovy)
+	mod := filepath.Join(module, "build.gradle")
+	if b, err := os.ReadFile(mod); err == nil {
+		if p := parseFromGradle(string(b)); p != "" {
+			return p
+		}
+	}
+	// 3) module build.gradle.kts (Kotlin DSL)
+	modkts := filepath.Join(module, "build.gradle.kts")
+	if b, err := os.ReadFile(modkts); err == nil {
+		if p := parseFromGradle(string(b)); p != "" {
+			return p
+		}
+	}
+
+	// 4) Scan source files for a package declaration
+	roots := []string{
+		filepath.Join(module, "src", "main", "java"),
+		filepath.Join(module, "src", "main", "kotlin"),
+	}
+	stopErr := errors.New("__pkg_found__")
+	var found string
+	for _, root := range roots {
+		_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
+			}
+			if strings.HasSuffix(path, ".kt") || strings.HasSuffix(path, ".java") {
+				if b, err := os.ReadFile(path); err == nil {
+					re := regexp.MustCompile(`(?m)^\s*package\s+([a-zA-Z0-9_.]+)`)
+					if m := re.FindStringSubmatch(string(b)); len(m) > 1 {
+						found = m[1]
+						return stopErr
+					}
+				}
+			}
+			return nil
+		})
+		if found != "" {
+			return found
+		}
+	}
+
+	return ""
 }

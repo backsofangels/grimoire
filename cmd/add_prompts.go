@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/backsofangels/grimoire/internal/logging"
@@ -20,6 +22,8 @@ func runAddInteractive(cmd *cobra.Command, provider providers.Provider, kind str
 	moduleFlag, _ := cmd.Flags().GetString("module")
 	langFlag, _ := cmd.Flags().GetString("lang")
 	layoutFlag, _ := cmd.Flags().GetString("layout")
+	uiFlag, _ := cmd.Flags().GetString("ui")
+	noUIFlag, _ := cmd.Flags().GetBool("no-ui")
 	overrideFlag, _ := cmd.Flags().GetBool("override")
 
 	// Determine default module (prefer provided flag, else 'app' if exists, else '.')
@@ -49,9 +53,12 @@ func runAddInteractive(cmd *cobra.Command, provider providers.Provider, kind str
 	if lang == "" {
 		lang = "kotlin"
 	}
-	ui := "xml"
-	if layoutFlag != "" {
-		ui = layoutFlag
+	ui := uiFlag
+	if noUIFlag {
+		ui = "none"
+	}
+	if ui == "" {
+		ui = "xml"
 	}
 	layout := layoutFlag
 	includeVM := false
@@ -121,6 +128,7 @@ func runAddInteractive(cmd *cobra.Command, provider providers.Provider, kind str
 			func() huh.Field {
 				sel := huh.NewSelect[string]().Title("UI Type").Value(&ui)
 				sel.Options(huh.NewOption("XML layout", "xml"))
+				sel.Options(huh.NewOption("None", "none"))
 				if composeOk {
 					sel.Options(huh.NewOption("Jetpack Compose", "compose"))
 				}
@@ -161,6 +169,25 @@ func runAddInteractive(cmd *cobra.Command, provider providers.Provider, kind str
 	}
 
 	// Build cfg and call provider.Add
+	if ui == "none" {
+		// don't pass a layout name when user chooses no UI
+		if layout != "" {
+			logging.Info("Ignoring layout because UI is 'none'")
+		}
+		layout = ""
+	}
+
+	// Validate inputs
+	if err := validateUI(ui); err != nil {
+		return err
+	}
+	if err := validateLang(lang); err != nil {
+		return err
+	}
+	if err := validateDI(di); err != nil {
+		return err
+	}
+
 	cfg := providers.ProviderConfig{
 		"Kind":        kind,
 		"Name":        name,
@@ -168,6 +195,7 @@ func runAddInteractive(cmd *cobra.Command, provider providers.Provider, kind str
 		"Module":      module,
 		"Lang":        lang,
 		"Layout":      layout,
+		"UI":          ui,
 		"Override":    override,
 		"ViewModel":   includeVM,
 		"DI":          di,
@@ -184,16 +212,68 @@ func runAddInteractive(cmd *cobra.Command, provider providers.Provider, kind str
 
 // detectPackage tries to read package from module/src/main/AndroidManifest.xml
 func detectPackage(module string) string {
+	// 1) AndroidManifest.xml package attribute
 	man := filepath.Join(module, "src", "main", "AndroidManifest.xml")
-	b, err := os.ReadFile(man)
-	if err != nil {
+	if b, err := os.ReadFile(man); err == nil {
+		re := regexp.MustCompile(`package\s*=\s*"([^"]+)"`)
+		if m := re.FindStringSubmatch(string(b)); len(m) > 1 {
+			return m[1]
+		}
+	}
+
+	// helper to parse namespace or applicationId from Gradle files
+	parseFromGradle := func(content string) string {
+		reNs := regexp.MustCompile(`namespace\s*(?:=)?\s*["']([^"']+)["']`)
+		if m := reNs.FindStringSubmatch(content); len(m) > 1 {
+			return m[1]
+		}
+		reApp := regexp.MustCompile(`applicationId\s*(?:=)?\s*["']([^"']+)["']`)
+		if m := reApp.FindStringSubmatch(content); len(m) > 1 {
+			return m[1]
+		}
 		return ""
 	}
-	s := string(b)
-	if idx := strings.Index(s, "package=\""); idx != -1 {
-		start := idx + len("package=\"")
-		if end := strings.Index(s[start:], "\""); end != -1 {
-			return s[start : start+end]
+
+	// 2) module build.gradle
+	build := filepath.Join(module, "build.gradle")
+	if b, err := os.ReadFile(build); err == nil {
+		if p := parseFromGradle(string(b)); p != "" {
+			return p
+		}
+	}
+	// 3) module build.gradle.kts
+	buildKts := filepath.Join(module, "build.gradle.kts")
+	if b, err := os.ReadFile(buildKts); err == nil {
+		if p := parseFromGradle(string(b)); p != "" {
+			return p
+		}
+	}
+
+	// 4) scan source files for package declaration
+	roots := []string{
+		filepath.Join(module, "src", "main", "java"),
+		filepath.Join(module, "src", "main", "kotlin"),
+	}
+	stopErr := errors.New("__pkg_found__")
+	var found string
+	for _, root := range roots {
+		_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
+			}
+			if strings.HasSuffix(path, ".kt") || strings.HasSuffix(path, ".java") {
+				if b, err := os.ReadFile(path); err == nil {
+					re := regexp.MustCompile(`(?m)^\s*package\s+([a-zA-Z0-9_.]+)`)
+					if m := re.FindStringSubmatch(string(b)); len(m) > 1 {
+						found = m[1]
+						return stopErr
+					}
+				}
+			}
+			return nil
+		})
+		if found != "" {
+			return found
 		}
 	}
 	return ""

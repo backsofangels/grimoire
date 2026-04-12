@@ -8,6 +8,10 @@ import androidx.fragment.app.Fragment
 
 class {{.ClassName}} : Fragment() {
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
+        {{if .NoLayout}}
+        return null
+        {{else}}
         return inflater.inflate(R.layout.{{.LayoutName}}, container, false)
+        {{end}}
     }
 }
