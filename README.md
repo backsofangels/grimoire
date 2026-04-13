@@ -45,7 +45,7 @@ cd grimoire
 go build -o grimoire.exe .
 ```
 
-### Windows (Scoop) — coming in v1.0.0
+### Windows (Scoop)
 
 ```powershell
 scoop bucket add grimoire https://github.com/backsofangels/scoop-bucket
