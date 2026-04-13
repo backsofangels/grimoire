@@ -7,9 +7,9 @@ Read this file entirely before making any changes.
 
 ## Project Summary
 
-**Grimoire** is a CLI scaffolding tool written in **Go**, designed to initialize development projects from the terminal without requiring an IDE. The primary (and currently only) provider is **Android**, targeting **VSCode** as the development environment.
+**Grimoire** is a CLI scaffolding tool written in **Go**, designed to initialize development projects from the terminal without requiring an IDE. It supports multiple providers (**Android**, **Spring Boot**), targeting **VSCode** as the primary development environment.
 
-The tool is inspired by `flutter create` and `ng new`: it supports both an interactive wizard mode and a fully non-interactive flag-based mode.
+The tool is inspired by `flutter create` and `ng new`: it supports both an interactive TUI wizard mode and a fully non-interactive flag-based mode.
 
 Refer to `README.md` for full feature documentation, command reference, and project structure.
 
@@ -17,9 +17,9 @@ Refer to `README.md` for full feature documentation, command reference, and proj
 
 ## Agent Progress
 
-- **Completed:** Repo bootstrap; Provider interface and registry; Android provider skeleton; Validator module and tests; Templates embedding; Generator implementation; `grimoire new` command (interactive TUI); Generator unit tests; Centralized logging wrapper (`internal/logging`) with branded helpers (`Success`, `Step`); Translation of user-facing strings to English; `grimoire add` command and provider-level `Add` API (activity|fragment|viewmodel) with DI (Hilt/Koin) and navigation wiring; Jetpack Compose template and Compose-ready Gradle support; Many unit tests covering add/generator flows (Kotlin & Java) — tests passing locally; Removed embedded Gradle wrapper assets; Runtime wrapper strategy implemented; Cleaned temporary `gradle-tmp` and updated `.gitignore`; README updates; **Phase 3 CLI flag rationalization:** replaced `--no-wrapper` with `--wrapper`; Spring Boot optional `--group` and `--artifact`; `--module` default set to "app"; `--ui` restricted to xml|compose; Java + Compose incompatibility validation; **Phase 4 Code Quality & Refactoring (Completed):** Removed unused imports and formatting cleanup; extracted string and numeric constants; created normalization utilities (`internal/common`); consolidated validation functions and created config extraction helpers; created template render helper and broke down GenerateProject functions; reduced nesting in Add function; created test helpers with builder pattern; parameterized validation tests; implemented base provider functionality; **Enhanced config system** (`internal/config/config.go`) with persistence to `~/.grimoire/config.json`, validation logic, merge semantics for CLI flags/wizard/defaults, full unit test coverage; all phases verified with passing test suite.
-- **In-Progress:** Acceptance testing with built binary; per-OS Gradle install instructions; documentation polish and manual QA / smoke builds across platforms.
-- **Pending:** `grimoire config` command (set/get/list/reset); Release configuration and CI pipeline; Scoop distribution and GoReleaser finalization; cross-platform verification and packaging.
+- **Completed:** Repo bootstrap; Provider interface and registry; Android provider skeleton; Validator module and tests; Templates embedding; Generator implementation; `grimoire new` command (interactive TUI); Generator unit tests; Centralized logging wrapper (`internal/logging`) with branded helpers (`Success`, `Step`); Translation of user-facing strings to English; `grimoire add` command and provider-level `Add` API (activity|fragment|viewmodel) with DI (Hilt/Koin) and navigation wiring; Jetpack Compose template and Compose-ready Gradle support; Many unit tests covering add/generator flows (Kotlin & Java) — tests passing locally; Removed embedded Gradle wrapper assets; Runtime wrapper strategy implemented; Cleaned temporary `gradle-tmp` and updated `.gitignore`; README updates; **Phase 3 CLI flag rationalization:** replaced `--no-wrapper` with `--wrapper`; Spring Boot optional `--group` and `--artifact`; `--module` default set to "app"; `--ui` restricted to xml|compose; Java + Compose incompatibility validation; **Phase 4 Code Quality & Refactoring (Completed):** Removed unused imports and formatting cleanup; extracted string and numeric constants; created normalization utilities (`internal/common`); consolidated validation functions and created config extraction helpers; created template render helper and broke down GenerateProject functions; reduced nesting in Add function; created test helpers with builder pattern; parameterized validation tests; implemented base provider functionality; **Enhanced config system** (`internal/config/config.go`) with persistence to `~/.grimoire/config.json`, validation logic, merge semantics for CLI flags/wizard/defaults, full unit test coverage; **TUI Styling Consistency:** Created shared `internal/tui/theme.go` package with centralized color palette and formatting helpers (`RenderGroupTitle`, `PrintHeader`); refactored Android & Spring Boot prompts to eliminate ~120 lines of duplicated styling code; **Gradle wrapper TUI selection:** Step 7 wrapper choice in Android wizard with sensible defaults; **Version tag stability:** Verified AGP 8.4.0, Kotlin 1.9.22, Compose Compiler 1.5.10, Spring Boot 3.2.0 compatibility; **README.md alignment:** Updated to multi-provider documentation, added Templates table, corrected prerequisites by provider, documented wrapper selection, added Configuration/Versions/Architecture sections; all phases verified with passing test suite.
+- **In-Progress:** Acceptance testing with built binary across platforms; cross-platform verification and smoke builds.
+- **Pending:** `grimoire config` command (set/get/list/reset); Release configuration and CI pipeline; Scoop distribution and GoReleaser finalization.
 
 **Smoke Test Fixes Applied:**
 
@@ -46,28 +46,46 @@ grimoire/
 │   └── config.go                 # grimoire config
 ├── internal/
 │   ├── logging/                # Centralized logging wrapper (internal/logging/logging.go)
+│   ├── tui/                    # Shared TUI theming (internal/tui/theme.go)
 │   ├── providers/
 │   │   ├── provider.go           # Provider interface + ProviderConfig + Check types
 │   │   ├── registry.go           # Global provider registry (register all providers here)
-│   │   └── android/              # Android provider (reference implementation)
+│   │   ├── android/              # Android provider (reference implementation)
+│   │   │   ├── provider.go       # Implements Provider interface
+│   │   │   ├── generator.go      # File generation logic
+│   │   │   ├── add.go            # Add activity/fragment/viewmodel logic
+│   │   │   ├── doctor.go         # Environment checks (JDK, ANDROID_HOME, etc.)
+│   │   │   ├── prompts.go        # Interactive wizard using charmbracelet/huh
+│   │   │   └── templates/        # Embedded Go templates (.tmpl)
+│   │   │       ├── AndroidManifest.xml.tmpl
+│   │   │       ├── MainActivity.kt.tmpl
+│   │   │       ├── MainActivity.java.tmpl
+│   │   │       ├── activity.kt.tmpl
+│   │   │       ├── activity.java.tmpl
+│   │   │       ├── fragment.kt.tmpl
+│   │   │       ├── fragment.java.tmpl
+│   │   │       ├── viewmodel.kt.tmpl
+│   │   │       ├── viewmodel.java.tmpl
+│   │   │       ├── build_gradle_app.tmpl
+│   │   │       ├── build_gradle_root.tmpl
+│   │   │       ├── settings_gradle.tmpl
+│   │   │       ├── gradle_properties.tmpl
+│   │   │       ├── gitignore.tmpl
+│   │   │       ├── vscode_settings.json.tmpl
+│   │   │       └── vscode_extensions.json.tmpl
+│   │   └── springboot/           # Spring Boot provider
 │   │       ├── provider.go       # Implements Provider interface
 │   │       ├── generator.go      # File generation logic
-│   │       ├── doctor.go         # Environment checks (JDK, ANDROID_HOME, etc.)
-│   │       ├── prompts.go        # Interactive wizard using charmbracelet/huh
+│   │       ├── prompts.go        # Interactive wizard
 │   │       └── templates/        # Embedded Go templates (.tmpl)
-│   │           ├── AndroidManifest.xml.tmpl
-│   │           ├── MainActivity.kt.tmpl
-│   │           ├── MainActivity.java.tmpl
-│   │           ├── build_gradle_app.tmpl
-│   │           ├── build_gradle_root.tmpl
-│   │           ├── settings_gradle.tmpl
-│   │           ├── gradle_properties.tmpl
-│   │           ├── activity_main_xml.tmpl
-│   │           ├── strings_xml.tmpl
-│   │           ├── themes_xml.tmpl
+│   │           ├── pom.xml.tmpl
+│   │           ├── build_gradle.tmpl
+│   │           ├── application.properties.tmpl
 │   │           ├── gitignore.tmpl
-│   │           ├── vscode_settings.tmpl
-│   │           └── vscode_extensions.tmpl
+│   │           ├── gradle_properties.tmpl
+│   │           ├── settings_gradle.tmpl
+│   │           ├── application_springboot.java.tmpl
+│   │           └── application_plain.java.tmpl
 │   ├── validator/
 │   │   └── validator.go          # Shared validation: package names, app names
 │   └── config/

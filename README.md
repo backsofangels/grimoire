@@ -1,25 +1,31 @@
 # 🔮 Grimoire
 
-> Scaffold Android projects from your terminal — no IDE required.
+> Scaffold development projects from your terminal — no IDE required.
 
-Grimoire is a lightweight CLI tool that generates production-ready Android projects in seconds.
+Grimoire is a lightweight CLI tool that generates production-ready projects in seconds.
 Inspired by `flutter create` and `ng new`, it supports both a fully flag-based non-interactive
-mode and an interactive TUI wizard.
+mode and an interactive TUI wizard with consistent, branded styling.
+
+**Supported targets:** Android, Spring Boot (Gradle/Maven)
 
 ```bash
-grimoire new MyApp --package com.example.myapp --lang kotlin
+grimoire new MyApp --package com.example.myapp --lang kotlin --provider android
 ```
 
 ---
 
 ## Features
 
-- **Provider-based architecture** — pluggable scaffolding targets (currently `android`, `springboot`)
-- **Kotlin & Java** — full template support for both languages
-- **Gradle-ready** — generates `build.gradle`, `settings.gradle`, `gradle.properties` and a working wrapper
-- **Opinionated defaults** — `AndroidManifest.xml`, `.vscode/` config, `.gitignore`, themes, strings, layouts
-- **Validation built-in** — enforces valid package names and app names before writing a single file
-- **CI-friendly** — fully scriptable, no prompts unless you want them
+- **Multi-provider architecture** — pluggable scaffolding targets (`android`, `springboot`)
+- **Android:** Kotlin & Java, full template support (basic, compose, empty)
+- **Spring Boot:** Java 17+, Gradle or Maven, multiple templates
+- **Gradle wrapper** — reproducible builds included by default; optional system gradle fallback
+- **Beautiful TUI** — interactive wizard with consistent purple/violet branding
+- **Config persistence** — saved defaults in `~/.grimoire/config.json`
+- **Opinionated defaults** — AndroidManifest, VSCode config, `.gitignore`, themes, strings
+- **Validation built-in** — enforces valid package names and app names before writing files
+- **Environment checks** — `grimoire doctor` detects missing tools
+- **CI-friendly** — fully scriptable, non-interactive mode for automation
 
 ---
 
@@ -28,10 +34,10 @@ grimoire new MyApp --package com.example.myapp --lang kotlin
 | Tool | Version | Notes |
 | --- | --- | --- |
 | Go | 1.22+ | To build from source |
-| Java JDK | 11+ | `java` must be on PATH |
-| Gradle CLI | any | Used to generate the wrapper; install hints shown if missing |
-| Android SDK | — | Required only to run `assembleDebug` locally |
-| Git | — | Recommended; used for `git init` during project creation |
+| Java JDK | 11+ (Android), 17+ (Spring Boot) | `java` must be on PATH |
+| Gradle CLI | any | Optional; used to generate wrapper if present |
+| Android SDK | — | Required only to run builds locally |
+| Git | — | Optional; used for `git init` during creation |
 
 ---
 
@@ -47,82 +53,106 @@ go build -o grimoire.exe .
 
 ### Windows (Scoop)
 
-```powershell
-scoop bucket add grimoire https://github.com/backsofangels/scoop-bucket
-scoop install grimoire
-```
+Scoop distribution available in v1.0.0 release.
 
 ---
 
 ## Usage
 
-### Create a Kotlin project
-
-```bash
-grimoire new MyApp --package com.example.myapp --lang kotlin --template basic
-```
-
-### Create a Java project
-
-```bash
-grimoire new MyJavaApp --package com.example.javaapp --lang java --template basic
-```
-
-### Interactive wizard (no flags needed)
+### Interactive Wizard (Recommended)
 
 ```bash
 grimoire new
 ```
 
-The wizard guides you step by step through app name, package, language, SDK version, template, and extras.
+Step through a beautiful colored TUI to configure your project:
 
-### Skip Gradle wrapper generation
+1. App name (e.g., MyApp)
+2. Package name (e.g., com.example.myapp)
+3. Output directory
+4. Language (Kotlin/Java)
+5. Minimum SDK (Android)
+6. Template (basic/compose/empty)
+7. **Gradle wrapper** (use gradlew or system gradle)
+8. Initialize git?
+9. Generate VSCode config?
+10. Confirm and create
+
+### Non-interactive Mode (Scripts/CI)
 
 ```bash
+# Create Kotlin Android project
+grimoire new MyApp \
+  --package com.example.myapp \
+  --lang kotlin \
+  --template basic \
+  --provider android
+
+# Create Java Spring Boot project with Maven
+grimoire new MyJavaApp \
+  --package com.example.javaapp \
+  --provider springboot \
+  --build-system maven
+
+# Skip Gradle wrapper
 grimoire new MyApp --package com.example.myapp --wrapper=false
 ```
 
-### Build the generated project
+### Build & Run
 
 ```bash
 cd MyApp
-./gradlew assembleDebug
+./gradlew assembleDebug  # If wrapper enabled
+# or
+gradle assembleDebug     # If using system gradle
 ```
 
-> Requires the Android SDK and matching build tools configured locally.
-
-### Add subcommands
-
-Use `grimoire add` to generate UI components and their supporting files inside an existing project.
+### Add Components to Existing Project
 
 ```bash
-# Add an Activity with Hilt, ViewModel, and nav entry
-grimoire add activity --name MyActivity --di hilt --viewmodel --nav
+# Add Activity with Hilt DI and ViewModel
+grimoire add activity --name MyScreen --di hilt --viewmodel --nav
 
-# Add a Fragment with Koin and nav entry
+# Add Fragment with Koin
 grimoire add fragment --name MyFragment --di koin --viewmodel --nav
 
-# Create only a ViewModel
-grimoire add viewmodel --name MyViewModel --di hilt
+# Add only a ViewModel
+grimoire add viewmodel --name MyViewModel
 ```
 
-- `--name`: explicit class/resource name (defaults derived from the command)
-- `--di`: dependency injection wiring; one of `none`, `hilt`, or `koin` (default: `none`)
-- `--viewmodel`: also generate a ViewModel and wire it to the UI component
-- `--nav`: add an entry to `app/src/main/res/navigation/nav_graph.xml`
-- `--override`: overwrite existing files when present
+Supports:
 
-- Note: omitting `--di` (or using `--di none`) generates the component without any DI wiring.
+- `--di none | hilt | koin` — dependency injection wiring
+- `--viewmodel` — generate accompanying ViewModel
+- `--nav` — add navigation graph entry
+- `--override` — replace existing files
+
+### Environment Checks
+
+```bash
+grimoire doctor --fix
+```
+
+Validates JDK, Gradle, Android SDK, and can auto-configure JAVA_HOME on Windows.
 
 ---
 
 ## Templates
 
+### Android
+
 | Name | Description |
 | --- | --- |
-| `basic` | Activity + layout XML + ViewModel, full project structure |
-| `empty` | Bare `MainActivity`, no layout directory |
-| `compose` | Jetpack Compose starter template (Kotlin only) with Compose-ready Gradle config |
+| `basic` | Activity + layout XML + ViewModel, standard project structure |
+| `empty` | Bare MainActivity, no layout directory |
+| `compose` | Jetpack Compose UI (Kotlin only), Compose-ready Gradle config |
+
+### Spring Boot
+
+| Name | Description |
+| --- | --- |
+| `springboot` | Spring Boot application with starter dependencies |
+| `plain` | Plain Java application |
 
 ---
 
